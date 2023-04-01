@@ -1,0 +1,87 @@
+{
+    "Folds test": {
+        "converters": null,
+        "dtype": {
+            "AP": "float64",
+            "AT": "float64",
+            "PE": "float64",
+            "RH": "float64",
+            "V": "float64"
+        },
+        "filepath_or_buffer": "C:/Users/Morri/Documents/Notebooks/DSCI1302/Folds test.csv",
+        "header": 0,
+        "index_col": 0,
+        "names": null,
+        "parse_dates": false,
+        "sep": ","
+    },
+    "Red Wine": {
+        "converters": null,
+        "dtype": {
+            "alcohol": "float64",
+            "chlorides": "float64",
+            "citric acid": "float64",
+            "density": "float64",
+            "fixed acidity": "float64",
+            "free sulfur dioxide": "float64",
+            "pH": "float64",
+            "quality": "uint8",
+            "residual sugar": "float64",
+            "sulphates": "float64",
+            "total sulfur dioxide": "float64",
+            "volatile acidity": "float64"
+        },
+        "filepath_or_buffer": "C:/Users/Morri/Documents/Notebooks/DSCI1302/Project/winequality-red.csv",
+        "header": 0,
+        "index_col": null,
+        "names": null,
+        "parse_dates": false,
+        "sep": ";"
+    },
+    "Red Wine with index": {
+        "converters": null,
+        "dtype": {
+            "alcohol": "float64",
+            "chlorides": "float64",
+            "citric acid": "float64",
+            "density": "float64",
+            "fixed acidity": "float64",
+            "free sulfur dioxide": "float64",
+            "pH": "float64",
+            "quality": "uint8",
+            "residual sugar": "float64",
+            "sulphates": "float64",
+            "total sulfur dioxide": "float64",
+            "volatile acidity": "float64"
+        },
+        "filepath_or_buffer": "C:/Users/Morri/Documents/Notebooks/DSCI1302/Project/Red Wine with index.csv",
+        "header": 0,
+        "index_col": 0,
+        "names": null,
+        "parse_dates": false,
+        "sep": ","
+    },
+    "White Wine": {
+        "converters": null,
+        "dtype": {
+            "alcohol": "float64",
+            "chlorides": "float64",
+            "citric acid": "float64",
+            "density": "float64",
+            "fixed acidity": "float64",
+            "free sulfur dioxide": "float64",
+            "pH": "float64",
+            "quality": "uint8",
+            "residual sugar": "float64",
+            "sulphates": "float64",
+            "total sulfur dioxide": "float64",
+            "volatile acidity": "float64"
+        },
+        "filepath_or_buffer": "C:/Users/Morri/Documents/Notebooks/DSCI1302/Project/winequality-white.csv",
+        "header": 0,
+        "index_col": null,
+        "names": null,
+        "parse_dates": false,
+        "sep": ";"
+    }
+}

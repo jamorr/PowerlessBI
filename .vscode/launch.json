@@ -1,0 +1,11 @@
+{
+    "configurations": [
+        {
+            "name": "Python: PowerlessBI",
+            "type": "python",
+            "request": "launch",
+            "program": "main.py",
+            "justMyCode": true
+        }
+    ]
+}
