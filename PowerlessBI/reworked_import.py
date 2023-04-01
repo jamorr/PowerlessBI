@@ -1,5 +1,5 @@
-from src.ctk_tooltip import CTkTooltip
-from src.padding import Padding
+from ctk_tooltip import CTkTooltip
+from padding import Padding
 from customtkinter import (END, CTk, CTkButton, CTkEntry, CTkFrame, CTkLabel,
                            CTkOptionMenu, CTkRadioButton, CTkTextbox, E, W,
                            IntVar, StringVar, ScalingTracker, CTkInputDialog,

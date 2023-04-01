@@ -7,19 +7,19 @@ from datetime import datetime
 from tkinter.filedialog import askopenfilename
 from warnings import catch_warnings, simplefilter
 
-from .padding import Padding
+from padding import Padding
 from customtkinter import (END, CTk, CTkButton, CTkEntry, CTkFrame, CTkLabel,
                            CTkOptionMenu, CTkRadioButton, CTkTextbox, E, W,
                            IntVar, StringVar, ScalingTracker, CTkInputDialog,
                            CTkTabview, CTkScrollableFrame)
 from pandastable import Table
-from .ctk_tooltip import CTkTooltip
+from ctk_tooltip import CTkTooltip
 import numpy as np
 import pandas as pd
 from pandas import read_csv
 from pandas.io.parsers.c_parser_wrapper import ensure_dtype_objs
-from .utils import ScrolledFrame
-from .data_manager import DataManager
+from utils import ScrolledFrame
+from data_manager import DataManager
 """
 use a json file but store the converter as a string
 on import eval() the converter

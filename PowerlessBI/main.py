@@ -6,11 +6,11 @@ from typing import Any, Tuple
 import pandas as pd
 from customtkinter import CTk, StringVar
 
-from .data_manager import DataManager  # noqa: F401
-from .data_selection_page import SelectData
-from .import_page import ImportWindow
-from .plot_page import PlotData
-from .variable_selection_page import VarWindow
+from data_manager import DataManager  # noqa: F401
+from data_selection_page import SelectData
+from import_page import ImportWindow
+from plot_page import PlotData
+from variable_selection_page import VarWindow
 
 # from scalene import scalene_profiler
 
@@ -140,21 +140,21 @@ class WindowManager(CTk):
         """
 
         try:
-            with open('path_settings.json', 'r') as f:
+            with open('../path_settings.json', 'r') as f:
                 self.path_settings = json.loads(f.read())
         except FileNotFoundError:
             default = {}
-            with open('path_settings.json', 'x') as f:
+            with open('../path_settings.json', 'x') as f:
                 f.write(json.dumps(default))
             self.path_settings = default
 
         try:
-            with open('type_dict.json', 'r') as f:
+            with open('../type_dict.json', 'r') as f:
                 self.data_types = json.loads(f.read())
         except FileNotFoundError:
             # File was not found, so create the file and write some default data to it
             default_data = {}
-            with open('type_dict.json', 'x') as f:
+            with open('../type_dict.json', 'x') as f:
                 f.write(json.dumps(default_data))
             self.data_types = default_data
 

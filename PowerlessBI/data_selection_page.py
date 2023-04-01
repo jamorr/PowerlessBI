@@ -1,4 +1,4 @@
-from .padding import Padding
+from padding import Padding
 from customtkinter import CTk, CTkButton, CTkFrame, CTkOptionMenu
 # from collections import Counter
 """

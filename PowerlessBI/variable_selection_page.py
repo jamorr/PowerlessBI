@@ -6,7 +6,7 @@ from customtkinter import (BooleanVar, CTk, CTkButton, CTkCheckBox, CTkFont,
                            CTkTabview, CTkFrame, CTkLabel, CTkOptionMenu,
                            StringVar, W)
 
-from .padding import Padding
+from padding import Padding
 
 """
 generate x vars on target var option select
