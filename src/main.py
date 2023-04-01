@@ -6,11 +6,11 @@ from typing import Any, Tuple
 import pandas as pd
 from customtkinter import CTk, StringVar
 
-from data_manager import DataManager  # noqa: F401
-from data_selection_page import SelectData
-from import_page import ImportWindow
-from plot_page import PlotData
-from variable_selection_page import VarWindow
+from .data_manager import DataManager  # noqa: F401
+from .data_selection_page import SelectData
+from .import_page import ImportWindow
+from .plot_page import PlotData
+from .variable_selection_page import VarWindow
 
 # from scalene import scalene_profiler
 
@@ -57,7 +57,7 @@ class WindowManager(CTk):
         super().__init__()
 
         self.title("PowerlessBI")
-        self.iconbitmap(r'./POWERLESS_BI_ICON.ico')
+        self.iconbitmap(r'../assets/POWERLESS_BI_ICON.ico')
         # self.tk.call('tk', 'scaling', 1.5)
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(0, weight=1)
