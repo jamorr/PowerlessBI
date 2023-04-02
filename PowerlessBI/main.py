@@ -62,7 +62,7 @@ class WindowManager(CTk):
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(0, weight=1)
 
-        # self.data_manager = DataManager()
+        self.data_manager = DataManager()
         self.path_settings: dict
         self.selected_data = StringVar()
 
@@ -118,8 +118,7 @@ class WindowManager(CTk):
         # create import window or put it into grid and configure buttons
         if not self.import_window_exists:
             self.import_window_exists = True
-            self.import_window = ImportWindow(self, self.path_settings,
-                                              self.data_types)
+            self.import_window = ImportWindow(self, self.data_manager)
             self.import_window.file_frame.home_button.configure(
                 command=self.import_window_forget_grid)
         else:

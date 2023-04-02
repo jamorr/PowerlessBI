@@ -5,21 +5,21 @@ import os
 import tkinter.messagebox as messagebox
 from datetime import datetime
 from tkinter.filedialog import askopenfilename
-from warnings import catch_warnings, simplefilter
+from typing import Any
+from warnings import catch_warnings, simplefilter  # noqa: F401
 
 from padding import Padding
 from customtkinter import (END, CTk, CTkButton, CTkEntry, CTkFrame, CTkLabel,
                            CTkOptionMenu, CTkRadioButton, CTkTextbox, E, W,
                            IntVar, StringVar, ScalingTracker, CTkInputDialog,
-                           CTkTabview, CTkScrollableFrame)
+                           CTkScrollableFrame, CTkSwitch, BooleanVar)
 from pandastable import Table
 from ctk_tooltip import CTkTooltip
-import numpy as np
-import pandas as pd
+# import numpy as np
+# import pandas as pd
 from pandas import read_csv
 from pandas.io.parsers.c_parser_wrapper import ensure_dtype_objs
-from utils import ScrolledFrame
-from data_manager import DataManager
+from data_manager import DataManager  # noqa: F401
 """
 use a json file but store the converter as a string
 on import eval() the converter
@@ -32,19 +32,24 @@ read only first 100 or so lines initially to evaluate the file
 - add button that transposes data frame
 - add button that scales data
 
-if screen is not wid enough add horizontal scroll bar or move the spread sheet to the bottom
+if screen is not wid enough add horizontal scroll bar or move the spread
+sheet to the bottom
 """
 
 
 class FileFrame(CTkFrame):
+    """
+    Frame to select data source. Can clear the form and choose data from existing.
+
+    Args:
+        CTkFrame (_type_): _description_
+    """
     def __init__(self, master):
         super().__init__(master)
         self.grid_columnconfigure((0, 1), weight=1)  # type: ignore
         self.grid_columnconfigure(2, weight=0)
 
-        self.grid(row=0, column=0, columnspan=2,
-                  sticky="nsew", padx=Padding.LARGE,
-                  pady=Padding.TOP)
+
 
         self.home_button = CTkButton(self, width=28, text='⌂',
                                      text_color='black', fg_color='#517f47',
@@ -95,8 +100,6 @@ class SettingsFrame(CTkFrame):
     def __init__(self, master: CTkFrame):
         CTkFrame.__init__(self, master)
 
-        self.grid(row=1, rowspan=2, column=0, sticky="nsew",
-                  padx=Padding.LEFT, pady=Padding.SMALL)
 
         self.grid_columnconfigure(0, weight=1)
         self.grid_columnconfigure(1, weight=0)
@@ -164,8 +167,7 @@ class SettingsFrame(CTkFrame):
 class ActionFrame(CTkFrame):
     def __init__(self, master: CTkFrame):
         super().__init__(master)
-        self.grid(row=1, column=1, sticky="new",
-                  padx=Padding.RIGHT, pady=Padding.SMALL)
+
         self.grid_columnconfigure((0, 1), weight=1)  # type: ignore
         self.grid_rowconfigure((0, 1, 2, 3), weight=0)  # type: ignore
 
@@ -194,105 +196,239 @@ class ActionFrame(CTkFrame):
                              sticky='ns')
 
 
-class AdvancedSettingsFrame(CTkTabview):
-    def __init__(self, master: CTkFrame):
+"""
+Parse names for each column name
+Add dropdowns to select data types for each column name
+Add switches to select if a column is an index column
+Add drop downs/format textboxes for date time
+
+x <Col name> <dtype> <index> <datetime>
+"""
+
+class SettingsRow(CTkFrame):
+    def __init__(
+        self,
+        master,
+        name: str | None = None,
+        is_index: bool = False,
+        data_type: str = '',
+        date_time: str = ''
+        ):
         super().__init__(master)
+        # self.grid_configure(column=5, row = 1)
+
+        self.name = StringVar(value=name)
+        self.is_index = BooleanVar(value = is_index)
+        self.data_type = StringVar(value = data_type)
+        self.date_time = StringVar(value = date_time)
+
+        self.name_entry = CTkEntry(
+            self, textvariable=self.name)
+        self.name_entry.grid(
+            column=0, row=0, sticky='nsew', padx=Padding.SMALL, pady=Padding.SMALL
+        )
+
+        self.index_switch = CTkSwitch(
+            self, width=36, variable=self.is_index, text="")
+        self.index_switch.grid(
+            column=1, row=0, sticky='nsew', padx=Padding.SMALL, pady=Padding.SMALL
+        )
+
+        self.data_type = CTkOptionMenu(
+            self, values='', variable=self.data_type)
+        self.data_type.grid(
+            column=2, row=0, sticky='nsew', padx=Padding.SMALL, pady=Padding.SMALL
+        )
+
+        self.date_time_entry = CTkEntry(
+            self, textvariable=self.date_time)
+        self.date_time_entry.grid(
+            column=3, row=0,
+            sticky="nsew",
+            padx=Padding.SMALL,
+            pady=Padding.SMALL
+        )
+
+    def del_row(self):
+        self.grid_forget()
+        del self
+class AdvancedSettingsFrame(CTkScrollableFrame):
+    def __init__(self, master: CTkFrame):
+        CTkScrollableFrame.__init__(self, master)
+        self.grid_configure(column=5, rows=3)
         # self.grid_rowconfigure(0, weight=1)
         # self.grid_columnconfigure((0, 1), weight=1)  # type: ignore
+        self.rows:list[SettingsRow] = []
+        self.del_buttons:list[CTkButton] = []
+
+        self.last_row_index = 2
 
         self.grid(row=2, rowspan=2, column=1, sticky='nsew',
                   padx=Padding.RIGHT, pady=Padding.BOTTOM)
+        CTkLabel(
+            self,
+            text="Advanced Settings"
+        ).grid(
+            row=0,
+            columnspan=5,
+            sticky='nsew', padx=Padding.SMALL, pady=Padding.SMALL
+        )
+        CTkButton(
+            self, width=28, text="x",
+            fg_color='#8b0000',
+            hover_color='#650000',
+            command=self.del_all_rows
+        ).grid(
+            row=1,column = 0,
+            sticky="ew",
+            padx=Padding.SMALL, pady=Padding.SMALL
+        )
+        CTkLabel(
+            self,
+            width=140,
+            text="Column Name"
+        ).grid(
+            row=1, column=1,
+            sticky='nsew',
+            padx=Padding.SMALL,
+            pady=Padding.SMALL
+        )
+        CTkLabel(
+            self,
+            width=36,
+            text="Index"
+        ).grid(
+            row=1, column=2,
+            sticky='nsew',
+            padx=Padding.SMALL,
+            pady=Padding.SMALL
+        )
+        CTkLabel(
+            self,
+            width=140,
+            text="Data Type"
+        ).grid(
+            row=1, column=3,
+            sticky='nsew',
+            padx=Padding.SMALL,
+            pady=Padding.SMALL
+        )
+        CTkLabel(
+            self,
+            width=140,
+            text="Date Time"
+        ).grid(
+            row=1, column=4,
+            sticky='nsew',
+            padx=Padding.SMALL,
+            pady=Padding.SMALL
+        )
+        self.new_row_button = CTkButton(self, text="+", command=self.add_row)
+        self.new_row_button.grid(row=2, column=1)
 
-        self.add('Index')
-        self.add('Types')
-        self.add('Date Parser')
-        self.add('Converter')
 
-        self.tab('Index').grid_columnconfigure(0, weight=1)
-        self.tab('Types').grid_columnconfigure(0, weight=1)
-        self.tab('Date Parser').grid_columnconfigure(0, weight=1)
-        self.tab('Converter').grid_columnconfigure(0, weight=1)
+    def add_row(
+        self,
+        name: str | None = None,
+        is_index: bool = False,
+        data_type: str = '',
+        date_time: str = ''):
+        """add a row to grid
 
-        CTkLabel(self.tab('Index'), text='Enter Index:').grid(
-            row=0, column=0, padx=Padding.LARGE, pady=Padding.TOP)
-        index_tooltip = CTkLabel(self.tab('Index'), text='?')
-        index_tooltip.grid(row=0, column=0, padx=Padding.RIGHT,
-                           pady=Padding.TOP, stick=E)
-        CTkTooltip(master=index_tooltip,
-                   wrap_length=350,
-                   delay=250,
-                   text='Enter column names or index numbers.'
-                   ' eg. ["foo", "bar"], or [1, 3]',
-                   justify='left')
-        self.index_textbox = CTkTextbox(self.tab('Index'))
-        self.index_textbox.grid(row=1, column=0, sticky='nsew',
-                                padx=Padding.LARGE, pady=Padding.BOTTOM)
+        Args:
+            name (str|None, optional): Name for new row. Defaults to None.
+        """
+        self.grid_rowconfigure(self.last_row_index+2)
+        self.rows.append(SettingsRow(self,  name, is_index, data_type, date_time))
+        self.rows[-1].grid(
+            column=1, row=self.last_row_index, columnspan=4, sticky='nsew',
+            pady = 4)
+        del_button = CTkButton(
+            self,width=28, text="x",
+            fg_color='#8b0000',
+            hover_color='#650000',
+            command=(lambda row = self.grid_info()['row']: self.del_row(row-2)))
+        del_button.grid(
+            column=0, row=self.last_row_index,
+            sticky='ew', padx=Padding.SMALL,
+            pady=Padding.SMALL
+        )
 
-        CTkLabel(self.tab('Converter'), text='Enter Converters:').grid(
-            row=0, column=0, padx=Padding.LARGE, pady=Padding.TOP)
-        converter_tooltip = CTkLabel(self.tab('Converter'), text='?')
-        converter_tooltip.grid(
-            row=0, column=0, padx=Padding.RIGHT, pady=Padding.TOP, stick=E)
-        CTkTooltip(master=converter_tooltip,
-                   wrap_length=350,
-                   delay=250,
-                   text='Dict of functions for converting values '
-                   'in certain columns. Keys can either be integers '
-                   'or column labels.\n'
-                   'eg. {"foo" : ..., 1 : ...}\n\n'
-                   'Values can be types.\n'
-                   ' eg. {"foo": "int"}\n\n'
-                   'Values can be lambda functions.\n'
-                   'eg. {"bar": "lambda x: int(x)**2"}\n\n'
-                   'NOTE: All strings, and lambda functions must be padded with ""'
-                   ' to be read correctly. '
-                   'All data is read as strings and must be converted to a numerical'
-                   ' type before doing numerical operations.',
-                   justify='left')
+        self.del_buttons.append(del_button)
+        self.last_row_index += 1
+        self.new_row_button.grid(row=self.last_row_index)
+        # TODO: Find out why scroll bar isnt updating
+        # self.configure(height=self.winfo_height()+60)
+        # self.configure(height=self.cget("height")+60)
+        return
 
-        self.converter_textbox = CTkTextbox(self.tab('Converter'))
-        self.converter_textbox.grid(row=1, column=0, sticky='nsew',
-                                    padx=Padding.LARGE, pady=Padding.BOTTOM)
+    def del_all_rows(self):
+        while self.del_buttons:
+            del_button = self.del_buttons[-1]
+            del_button.invoke()
 
-        CTkLabel(self.tab('Types'), text='Enter type settings:').grid(
-            row=0, column=0, padx=Padding.LARGE, pady=Padding.TOP)
-        data_types_tooltip = CTkLabel(self.tab('Types'), text='?')
-        data_types_tooltip.grid(row=0, column=0, padx=Padding.RIGHT,
-                                pady=Padding.TOP, stick=E)
-        CTkTooltip(master=data_types_tooltip,
-                   wrap_length=350,
-                   delay=250,
-                   text='Enter a dict with keys of column names and'
-                   ' values of parsable data types.\n'
-                   'eg: {"foo": "uint16", "bar":"float64"}.\n\n'
-                   'NOTE: If the text box is left blank, upon'
-                   ' saving it will be filled with the automatically parsed types.',
-                   justify='left')
+    def reset(self):
+        for row in self.rows:
+            row.name.set('')
+            row.name_entry.delete(0, END)
+            row.is_index.set(False)
+            row.data_type.set('')
 
-        self.data_types_text = CTkTextbox(self.tab('Types'))
-        self.data_types_text.grid(row=1, column=0, sticky='nsew',
-                                  padx=Padding.LARGE, pady=Padding.BOTTOM)
+            row.date_time.set('')
+            row.date_time_entry.delete(0, END)
 
-        CTkLabel(self.tab('Date Parser'), text='Enter date parser settings:').grid(
-            row=0, column=0, padx=Padding.LARGE, pady=Padding.TOP)
-        dates_tooltip = CTkLabel(self.tab('Date Parser'), text='?')
-        dates_tooltip.grid(row=0, column=0, padx=Padding.RIGHT,
-                           pady=Padding.TOP, stick=E)
-        CTkTooltip(master=dates_tooltip,
-                   wrap_length=350,
-                   delay=250,
-                   text='Boolean. If True -> try parsing the index. \n\n'
-                   'List of int or names. e.g. If [1, 2, 3] -> try parsing'
-                   ' columns 1, 2, 3 each as a separate date column. \n\n'
-                   'List of lists. e.g. If [[1, 3]] -> combine columns 1'
-                   ' and 3 and parse as a single date column. \n\n'
-                   'Dictionary/Hashmap, e.g. {"foo" : [1, 3]} -> parse columns'
-                   ' 1, 3 as date and call result "foo"',
-                   justify='left')
+    def del_row(self, row):
+        # self.del_buttons[row].grid_remove()
+        self.del_buttons[row].destroy()
+        del self.del_buttons[row]
+        self.rows[row].del_row()
+        self.rows[row].destroy()
+        del self.rows[row]
+        for row, button in zip(self.rows[row:], self.del_buttons[row:]):
+            new_row = row.grid_info()['row'] - 1
+            row.grid_configure(row=new_row)
+            button.grid_configure(row = new_row)
 
-        self.dates_textbox = CTkTextbox(self.tab('Date Parser'))
-        self.dates_textbox.grid(row=1, column=0, sticky='nsew',
-                                padx=Padding.LARGE, pady=Padding.BOTTOM)
+    def get_settings(self):
+        names = []
+        indices = []
+        data_types = []
+        datetime = []
+
+        for i,row in enumerate(self.rows):
+            names.append(row.name.get())
+            indices.append(row.is_index.get())
+            data_types.append(row.data_type.get())
+            datetime.append(row.date_time.get())
+
+        return {"col_names":names,
+                "indices":indices,
+                "dtypes":data_types,
+                "datetime":datetime}
+
+    def set_all(self, settings:dict[str, list]):
+        if self.rows:
+            if not messagebox.askokcancel(
+            "WARNING",
+            "Proceeding will clear existing rows. Continue anyways?"):
+                return
+        self.del_all_rows()
+        rows = [
+            {
+                'name':settings['names'][i],
+                'is_index':True if i in settings['index'] else False,
+                'data_type':settings['dtype'][settings['names'][i]]
+                if settings['names'][i] in settings['dtype'] else '',
+                # depends on settings in main settings
+                # by default: MM/DD/YYYY
+                'date_time':''
+            }
+            for i in range(len(settings['names']))
+        ]
+
+
+
+
 
 
 class ViewFrame(CTkFrame):
@@ -311,7 +447,7 @@ class ImportWindow(CTkFrame):
     Path and import settings can be saved to path_settings.json
     """
 
-    def __init__(self, master: CTk, path_settings: dict, data_types: dict = {}) -> None:
+    def __init__(self, master: CTk, data_manager:DataManager) -> None:
         """initialize ImportWindow
 
         Args:
@@ -327,14 +463,14 @@ class ImportWindow(CTkFrame):
                   sticky='nsew',
                   padx=(0, 16))
 
-        self.data_types = data_types
-        self.path_settings = path_settings
+        # self.data_types = data_types
+        # self.path_settings = path_settings
+        self.data_manager = data_manager
         self.path_settings_alias = ['']
-        self.path_settings_alias.extend(list(self.path_settings.keys()))
+        self.path_settings_alias.extend(list(self.data_manager.get_path_settings()))
 
         self.path_text = StringVar()
         self.delim = StringVar(value='')
-        self.names = StringVar(value=None)
 
         self.selected = StringVar()
         self.last_import = None  # list of import settings from last import
@@ -348,19 +484,26 @@ class ImportWindow(CTkFrame):
                                                        values=self.path_settings_alias,
                                                        command=self.fill_form)
         self.file_frame.del_button.configure(command=self.del_selected)
-
+        self.file_frame.grid(row=0, column=0, columnspan=2,
+                        sticky="nsew", padx=Padding.LARGE,
+                        pady=Padding.TOP)
         # create frame to input settings
         self.settings_frame = SettingsFrame(self)
         self.settings_frame.delim_entry.configure(textvariable=self.delim)
+        self.settings_frame.grid(row=1, column=0, sticky="nsew",
+                  padx=Padding.LEFT, pady=Padding.SMALL)
 
         # create frame for action buttons
         self.act_frame = ActionFrame(self)
         self.act_frame.import_button.configure(command=self.import_data)
         self.act_frame.save_fp_button.configure(command=self.save_data_frame)
         self.act_frame.save_path_button.configure(command=self.save_prep)
-
+        self.act_frame.grid(row=1, column=1, sticky="new",
+                  padx=Padding.RIGHT, pady=Padding.SMALL)
         # create frame for advanced options
         self.adv_frame = AdvancedSettingsFrame(self)
+        self.adv_frame.grid(row=2, rowspan = 2,column = 0, columnspan=2,sticky="nsew",
+                            padx = Padding.LARGE, pady = Padding.BOTTOM)
 
         screen_width = self.winfo_screenwidth()
         height = self.winfo_height()
@@ -421,7 +564,7 @@ class ImportWindow(CTkFrame):
             fg_color=["gray95", "gray10"], state='disabled')
         self.selected.set('')
 
-        self.update_path_json()
+        self.data_manager.update_path_json(self.path_settings)
 
     # find file and set entry box to path
     def browse_func(self):
@@ -429,125 +572,60 @@ class ImportWindow(CTkFrame):
             ("CSV files", "*.csv"), ("All files", "*.*")))
         self.path_text.set(filename)
 
+    # TODO: Implement parser for DateTime
+    def parse_dt(self, dt):
+        """Boolean. If True -> try parsing the index. \n\n
+        List of int or names. e.g. If [1, 2, 3] -> try parsing
+         columns 1, 2, 3 each as a separate date column. \n\n
+        List of lists. e.g. If [[1, 3]] -> combine columns 1
+         and 3 and parse as a single date column.
+        Dictionary/Hashmap, e.g. {"foo" : [1, 3]} -> parse columns
+         1, 3 as date and call result 'foo'"""
+        return False
     ### add type checking ###
     # read settings and do type checkikng
     def read_form(self):
         # get path
         file_loc = self.path_text.get()  # check validity later
-        col_names = self.settings_frame.col_name_entry.get()  # check validity
         rad_var = self.settings_frame.rad_var.get()  # always valid
         delim = self.delim.get() if self.delim.get() else None
         # index_str = self.settings_frame.index_entry.get(
         # ) if self.settings_frame.index_entry.get() else ''  # check validity
+        adv_settings = self.adv_frame.get_settings()
+        if adv_settings:
+            index:list[int]|None = [i for i, b_var in enumerate(adv_settings["indices"]) if b_var]
+            names:list[str]|None = adv_settings['col_names']
+            data_type:dict[str, str]|None = {name:dtype
+                         for name,dtype in zip(names, adv_settings['dtypes']) if dtype}
+            dt_parser:bool|list[int]|list[str] = self.parse_dt(adv_settings['datetime'])
+        else:
+            names = None
+            # header = 'infer'
+            index = None
+            data_type = None
+            dt_parser = False
 
-        index_str = self.adv_frame.index_textbox.get('0.0', 'end')
-        converter_str = self.adv_frame.converter_textbox.get('0.0', 'end')
-        data_type_str = self.adv_frame.data_types_text.get('0.0', 'end')
-        dt_parser_str = self.adv_frame.dates_textbox.get('0.0', 'end')
 
         # self.data_manager.process()
         # get column names
-        if rad_var != 0:
-            names = col_names.split(',')
-            if rad_var == 1:
-                header = 'infer'
-            else:
-                header = 0
-        else:
-            names = None
-            header = 0
 
-        if index_str != '\n':
-            try:
-                index = ast.literal_eval(index_str)
-            except:
-                messagebox.showerror(
-                    'ERROR', message='Enter a valid index or list of indices.')
-                return None
-            if isinstance(index, list):
-                for elem in index:
-                    if not isinstance(elem, (int, str)):
-                        messagebox.showerror('ERROR',
-                                             message=f'{elem} is not a valid index.')
-                        return None
-            elif not isinstance(index, (int, str)):
-                messagebox.showerror('ERROR', message='Enter a valid index.')
-                return None
-        else:
-            index = None
+        settings = self.data_manager.parse_inputs(
+            file_loc,
+            delim,
+            rad_var,
+            names,
+            index,
+            data_type,
+            dt_parser
+        )
+        if settings is None:
+            raise TypeError
+        return settings
 
-        # get converter - read as json
-        if converter_str != '\n':
-            # check if valid object
-            try:
-                converter = json.loads(converter_str)
-            except:
-                messagebox.showerror(
-                    'ERROR', message='Enter converter with valid syntax.\n'
-                    'See the tool tip (?) for formatting tips.')
-                return None
 
-            # check keys and values of dict for correct values
-            for key, value in converter.items():
 
-                if not isinstance(key, (int, str)):
-                    messagebox.showerror(
-                        'ERROR', message=f'Converter key "{key}" is invalid.\n See the'
-                        ' tool tip (?) for formatting tips.')
-                    return None
-
-                value = eval(value)
-                if not isinstance(value, (FunctionType, type)):
-                    messagebox.showerror(
-                        'ERROR', message=f'Converter value "{value}" is invalid.\n'
-                        ' See the tool tip (?) for formatting tips.')
-                    return None
-        else:
-            converter = None
-
-        # get data types for columns
-        if data_type_str != '\n':
-            data_type = ast.literal_eval(data_type_str)
-            if isinstance(data_type, dict):
-                try:
-                    data_type = {name: str(dtype)
-                                 for name, dtype in ensure_dtype_objs(data_type).items()
-                                 }
-                except:
-                    messagebox.showerror(
-                        'ERROR', message='Enter a valid data type dictionary.'
-                        ' See the tool tip (?) for formatting tips.')
-                    return None
-            else:
-                messagebox.showerror(
-                    'ERROR', message='Enter a valid data type dictionary.'
-                    ' See the tool tip (?) for formatting tips.')
-                return None
-        else:
-            data_type = None
         # C:\ProgramData\Anaconda3\envs\DSCI1302\Lib\site-packages\pandas\core\dtypes\common.py
         # pandas>io>parsers>c_parser_wrapper.py>ensure_dtype_objs
-
-        # get date time parser - read as json
-        if dt_parser_str != '\n':
-            try:
-                dt_parser = ast.literal_eval(dt_parser_str)
-            except:
-                messagebox.showerror(
-                    'ERROR', message='Enter a valid date/time parser. See the tool tip'
-                    '(?) for formatting tips.')
-                return None
-
-        else:
-            dt_parser = False
-
-        # add to zip:
-        # :
-        return {name: set for name, set in zip(['filepath_or_buffer', 'dtype', 'names',
-                                                'header', 'sep', 'index_col',
-                                                'converters', 'parse_dates'],
-                                               [file_loc, data_type, names, header,
-                                                delim, index, converter, dt_parser])}
 
     def clear_form(self):
         self.path_text.set('')
@@ -566,15 +644,8 @@ class ImportWindow(CTkFrame):
         self.act_frame.alias_entry._entry.delete(0, END)
         self.act_frame.alias_entry._activate_placeholder()
 
-        # delete index entry and activate placeholder
-        # self.settings_frame.index_entry._entry.delete(0, END)
-        # self.settings_frame.index_entry._activate_placeholder()
-
         # delete adv frame entry
-        self.adv_frame.index_textbox.delete('0.0', END)
-        self.adv_frame.converter_textbox.delete('0.0', END)
-        self.adv_frame.data_types_text.delete('0.0', END)
-        self.adv_frame.dates_textbox.delete('0.0', END)
+        self.adv_frame.reset()
 
         self.focus()
 
@@ -614,25 +685,18 @@ class ImportWindow(CTkFrame):
 
         # fill alias entry box
         self.fill_placeholder_entry(self.act_frame.alias_entry, selected)
+        # fill rows in adv_frame
+        adv_frame_settings = {
+            'names':settings['names'],
+            'is_index':settings['index_col'],
+            'dtype':settings['dtype'],
+            # TODO: implement date conversion based on default from settings
 
-        # fill index box
-        # index_col = settings['index_col']
-        # if index_col is None:
-        #     index_col = ''
-        # elif type(index_col) is str:
-        #     index_col = f'"{index_col}"'
-
-        # self.fill_placeholder_entry(self.settings_frame.index_entry, index_col)
-        self.fill_textbox(self.adv_frame.index_textbox, settings['index_col'])
-
+            'parse_dates':self.data_manager.convert_dates(settings['parse_dates'])
+        }
+        self.adv_frame.set_all(adv_frame_settings)
         # fill converter box
-        self.fill_textbox(self.adv_frame.converter_textbox,
-                          settings['converters'])
 
-        # fill parser box
-        self.fill_textbox(self.adv_frame.dates_textbox,
-                          settings['parse_dates'])
-        self.fill_textbox(self.adv_frame.data_types_text, settings['dtype'])
         self.focus()
 
         # import based on settings
@@ -666,8 +730,10 @@ class ImportWindow(CTkFrame):
     # import data with settings and display in frame
     def import_data(self):
         # read settings from form
+
         settings = self.read_form()
         if settings is None:
+            messagebox.showerror("Error", "Invalid import settings.")
             return None
 
         # clear table if there is data on it
@@ -691,22 +757,17 @@ class ImportWindow(CTkFrame):
 
     def add_df(self, settings_in: dict):
         settings = settings_in.copy()
-        # Change converter strings to py objects if possible
-        if isinstance(settings['converters'], dict):
-            settings['converters'] = self.convert(settings['converters'])
+
 
         if isinstance(settings['dtype'], dict):
             settings['dtype'] = self.convert(settings['dtype'])
-        # Add dataframe to table
-        # df = read_csv(**settings)
-        # df.convert_dtypes(True)  # type:ignore
 
-        try:
-            self.table.model.df = read_csv(**settings)
-        except Exception as e:
-            # Display a custom error message along with the exception
-            messagebox.showerror("Error", "An error occurred:\n\n" + str(e))
-            return
+        # try:
+        self.table.model.df = read_csv(**settings)
+        # except Exception as e:
+        #     # Display a custom error message along with the exception
+        #     messagebox.showerror("Error", "An error occurred:\n\n" + str(e))
+        #     return
 
         # show index if present and format table
         self.table.showindex = True
@@ -720,6 +781,7 @@ class ImportWindow(CTkFrame):
         # change the names back?
         form = self.read_form()
         if form is None:
+            messagebox.showerror("Error", "Invalid import settings.")
             return
         self.save_path(form)
 
@@ -782,7 +844,7 @@ class ImportWindow(CTkFrame):
                 'Select Yes to proceed, No to save without overwriting,'
                 ' or Cancel to exit.')
 
-        if overwrite == False:
+        if overwrite is False:
             self.selected.set('')
         elif overwrite is None:
             return None
@@ -807,7 +869,8 @@ class ImportWindow(CTkFrame):
         index_name = self.table.model.df.index.name
         settings = {
             'filepath_or_buffer': path, 'names': None,
-            'header': self.last_import['header'] if self.last_import is not None else 'infer',
+            'header': self.last_import['header']
+            if self.last_import is not None else 'infer',
             'sep': ",", 'index_col': index_name if index_name is not None else 0,
             'converters': None, 'parse_dates': False
         }

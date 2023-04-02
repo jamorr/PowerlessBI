@@ -14,7 +14,6 @@ make folder in my documents
 """
 import json
 import os
-from types import FunctionType
 import pandas as pd
 from tkinter import messagebox
 import ast
@@ -33,125 +32,60 @@ class DataManager:
             self.save_folders = os.listdir(self.save_path)
 
     def settings_json(self):
-        with open("settings.json", "r") as f:
+        with open("../settings.json", "r") as f:
             return json.load(f)
+
+    def get_path_settings(self) -> list[str]:
+        return self.save_folders
+
 
     def parse_inputs(
         self,
         file_loc:str,
         delim:str,
-        rad_var:str,
-        col_names:str,
-        index_str:str,
-        converter_str:str,
-        data_type_str:str,
-        dt_parser_str:str,
+        rad_var:int,
+        col_names:list[str],
+        index_list:list[int]|None,
+        data_type:dict[str, str]|None,
+        dt_parser_str:list[str]|bool|None,
     ):
-        # get column names
-        if rad_var != 0:
-            names = col_names.split(',')
-            if rad_var == 1:
-                header = 'infer'
-            else:
-                header = 0
-        else:
-            names = None
-            header = 0
-
-        if index_str != '\n':
-            try:
-                index = ast.literal_eval(index_str)
-            except:
-                messagebox.showerror(
-                    'ERROR', message='Enter a valid index or list of indices.')
-                return None
-            if isinstance(index, list):
-                for elem in index:
-                    if not isinstance(elem, (int, str)):
-                        messagebox.showerror('ERROR',
-                                             message=f'{elem} is not a valid index.')
-                        return None
-            elif not isinstance(index, (int, str)):
-                messagebox.showerror('ERROR', message='Enter a valid index.')
-                return None
-        else:
-            index = None
-
-        # get converter - read as json
-        if converter_str != '\n':
-            # check if valid object
-            try:
-                converter = json.loads(converter_str)
-            except:
-                messagebox.showerror(
-                    'ERROR', message='Enter converter with valid syntax.\n'
-                    'See the tool tip (?) for formatting tips.')
-                return None
-
-            # check keys and values of dict for correct values
-            for key, value in converter.items():
-
-                if not isinstance(key, (int, str)):
-                    messagebox.showerror(
-                        'ERROR', message=f'Converter key "{key}" is invalid.\n See the'
-                        ' tool tip (?) for formatting tips.')
-                    return None
-
-                value = eval(value)
-                if not isinstance(value, (FunctionType, type)):
-                    messagebox.showerror(
-                        'ERROR', message=f'Converter value "{value}" is invalid.\n'
-                        ' See the tool tip (?) for formatting tips.')
-                    return None
-        else:
-            converter = None
-
-        # get data types for columns
-        if data_type_str != '\n':
-            data_type = ast.literal_eval(data_type_str)
-            if isinstance(data_type, dict):
-                try:
-                    data_type = {
-                        name: str(dtype) for name, dtype in
-                        pandas_type_parser.ensure_dtype_objs(data_type).items()
-                    }
-                except:
-                    messagebox.showerror(
-                        'ERROR', message='Enter a valid data type dictionary.'
-                        ' See the tool tip (?) for formatting tips.')
-                    return None
-            else:
-                messagebox.showerror(
-                    'ERROR', message='Enter a valid data type dictionary.'
-                    ' See the tool tip (?) for formatting tips.')
-                return None
-        else:
-            data_type = None
-        # C:\ProgramData\Anaconda3\envs\DSCI1302\Lib\site-packages\pandas\core\dtypes\common.py
-        # pandas>io>parsers>c_parser_wrapper.py>ensure_dtype_objs
-
-        # get date time parser - read as json
-        if dt_parser_str != '\n':
-            try:
-                dt_parser = ast.literal_eval(dt_parser_str)
-            except:
-                messagebox.showerror(
-                    'ERROR', message='Enter a valid date/time parser. See the tool tip'
-                    '(?) for formatting tips.')
-                return None
-
-        else:
+        # TODO: implement DT parser
+        dt_parser = self.convert_dates(dt_parser_str)
+        if dt_parser is None:
             dt_parser = False
+        header = 'infer' if rad_var == 1 else 0
 
-        return {name: set for name, set in zip(['filepath_or_buffer', 'dtype', 'names',
-                                                    'header', 'sep', 'index_col',
-                                                    'converters', 'parse_dates'],
-                                                [file_loc, data_type, names, header,
-                                                    delim, index, converter, dt_parser])
+        if data_type:
+            for dtype in data_type.values():
+                try:
+                    pandas_type_parser.ensure_dtype_objs(dtype)
+                except TypeError:
+                    raise TypeError
+
+        settings = {name: set for name, set in zip(['filepath_or_buffer', 'dtype',
+                                                    'names','header', 'sep',
+                                                    'index_col','parse_dates'],
+                                                [file_loc, data_type, col_names, header,
+                                                    delim, index_list, dt_parser])
                 }
 
+        print(settings)
+        if not settings['dtype']:
+            settings['dtype'] = None
+        if not settings['index_col']:
+            del settings['index_col']
+        if not settings['parse_dates']:
+            del settings['parse_dates']
+        if not settings['names']:
+            del settings['names']
+        print(settings)
+
+        return settings
 
 
+    # TODO: converts date strings into correct format
+    def convert_dates(self, dates):
+        return
 
     def new_save(self,
                  alias: str,
@@ -214,7 +148,7 @@ class DataManager:
 
         return data
 
-    def save_data_frame(self):
+    def save_data_frame(self, settings):
         """ Save pandas DataFrame displayed in table as csv"""
         # get path name and alias/new file name
         path = self.path_text.get()
@@ -240,7 +174,7 @@ class DataManager:
         # Check for valid path
         try:
             dirname = os.path.dirname(path)
-        except:
+        except AttributeError or TypeError:
             messagebox.showerror('ERROR', message='Invalid Path')
             return None
 
@@ -256,10 +190,12 @@ class DataManager:
         # get settings
         index_name = self.table.model.df.index.name
         settings = {
-            'filepath_or_buffer': path, 'names': None,
+            'filepath_or_buffer': path,
+            'names': None,
             'header': self.last_import['header']
             if self.last_import is not None else 'infer',
-            'sep': ",", 'index_col': index_name if index_name is not None else 0,
+            'sep': ",", # figure out how to get separator from df
+            'index_col': index_name if index_name is not None else 0,
             'converters': None, 'parse_dates': False
         }
 
@@ -267,16 +203,16 @@ class DataManager:
         self.table.model.df.to_csv(f'{path}')
 
     # update json file with updated dict
-    def update_path_json(self):
+    def update_path_json(self, path_settings):
         # write updated settings dict to file
         with open('path_settings.json', 'w') as f:
             f.seek(0)
-            json.dump(self.path_settings, f, indent=4, sort_keys=True)
+            json.dump(path_settings, f, indent=4, sort_keys=True)
 
-    def update_type_json(self):
+    def update_type_json(self, data_types):
         with open('type_dict.json', 'w') as f:
             f.seek(0)
-            json.dump(self.data_types, f, indent=4, sort_keys=True)
+            json.dump(data_types, f, indent=4, sort_keys=True)
 
 
 if __name__ == "__main__":

@@ -30,8 +30,7 @@ class ReadFrame(CTkFrame):
 
     def __init__(self, master: CTkFrame):
         super().__init__(master)
-        self.grid(column=0, row=0, padx=Padding.LARGE,
-                  pady=Padding.TOP)
+
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure((0, 1, 2), weight=0)  # type: ignore
         # add button to open import window
@@ -56,15 +55,14 @@ class VerFrame(CTkFrame):
     def __init__(self, master: CTkFrame, type_requirements: list[str]):
         super().__init__(master)
 
-        self.grid(column=0, row=1, padx=Padding.LARGE,
-                  pady=Padding.BOTTOM)
+
         self.grid_columnconfigure(0, weight=1)
 
         self.vis_buttons : dict[str, CTkButton] = {}
 
         for vis_type in type_requirements:
             button = CTkButton(self, text=vis_type,
-                               fg_color=["gray90", "gray13"],  # type: ignore
+                               fg_color=["gray90", "gray13"],
                                state='disabled',)
             button.grid(column=0, padx=Padding.LARGE,
                         pady=Padding.SMALL, sticky='ns')
@@ -99,14 +97,21 @@ class SelectData(CTkFrame):
 
         self.data_types = data_types
         self.path_settings = path_settings
+        self.dtypes_count = None
 
         # num = numerical, ord = ordinal, cat = categorical, time = datetime,
         # any = any of the above
         self.type_requirements = dict(sorted(type_requirements.items()))
 
         self.read_frame = ReadFrame(self)
+        # when a data set is selected read dtypes and update buttons
         self.read_frame.data_opt.configure(command=self.read_dtypes)
+        self.read_frame.grid(column=0, row=0, padx=Padding.LARGE,
+                  pady=Padding.TOP)
+
         self.ver_frame = VerFrame(self, list(self.type_requirements.keys()))
+        self.ver_frame.grid(column=0, row=1, padx=Padding.LARGE,
+                  pady=Padding.BOTTOM)
 
     ## overhaul this and check dtypes ##
     ## ordinal vars can appear in multiple categories thus messing up the calculations##
@@ -115,10 +120,10 @@ class SelectData(CTkFrame):
         type in settings matches data types in path_settings.json
 
         Args:
-            required (dict[str, tuple]): _description_
-            button (CTkButton): _description_
+            required (dict[str, tuple]): type requirements for vis type
+            button (CTkButton): button for vis type
         """
-
+        # get counts for
         temp_types_dict = self.dtypes_count.copy()
 
         for k, v in required.items():
@@ -144,8 +149,7 @@ class SelectData(CTkFrame):
                         temp_types_dict['ord'] -= num
                         break
                 else:
-                    button.configure(fg_color=["gray90", "gray13"],  # type: ignore
-                                    state='disabled')
+                    button.configure(fg_color=["gray90", "gray13"], state='disabled')
                     return None
 
         button.configure(state = 'normal',fg_color = ["#3a7ebf", "#1f538d"])
