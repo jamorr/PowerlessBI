@@ -89,7 +89,7 @@ class DataManager:
 
     def new_save(self,
                  alias: str,
-                 path_settings: dict[str, None | dict | int | list],
+                 path_settings: dict[str, None | dict | int | list | str],
                  data_types: dict[str, list[str]],
                  operations: list):
 

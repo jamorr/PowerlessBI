@@ -122,7 +122,7 @@ class SettingsFrame(CTkFrame):
 
         self.header_rad_0 = CTkRadioButton(self, value=0, variable=self.rad_var,
                                            command=self.set_columns,
-                                           text="Use first row as column names",)
+                                           text="Use row as column names",)
 
         self.header_rad_0.grid(row=2, column=0, stick=W,
                                padx=Padding.LEFT, pady=Padding.SMALL)
@@ -130,22 +130,16 @@ class SettingsFrame(CTkFrame):
         # add button to replace existing names
         self.header_rad_1 = CTkRadioButton(self, variable=self.rad_var,
                                            value=1, command=self.set_columns,
-                                           text="Create column names")
+                                           text="Infer column names")
         self.header_rad_1.grid(row=3, column=0, stick=W,
-                               padx=Padding.LEFT, pady=Padding.SMALL)
-
-        self.header_rad_2 = CTkRadioButton(self, variable=self.rad_var,
-                                           value=2, command=self.set_columns,
-                                           text="Replace column names",)
-        self.header_rad_2.grid(row=4, column=0, stick=W,
                                padx=Padding.LEFT, pady=Padding.SMALL)
 
         # consider using textbox
         # https://github.com/TomSchimansky/CustomTkinter/wiki/CTkTextbox
         self.col_name_entry = CTkEntry(self,
                                        placeholder_text=
-                                       "Enter column names separated by ','",
-                                       width=250, fg_color=["gray95", "gray10"])
+                                       "Enter row indices to use as header separated by ','",
+                                       width=250, fg_color=("gray95", "gray10"))
         self.col_name_entry.grid(row=5, column=0, sticky='nsew',
                                  padx=(40, 16), pady=Padding.BOTTOM)
         self.col_name_entry.configure(state='disabled')
@@ -254,8 +248,7 @@ class SettingsRow(CTkFrame):
         del self
 class AdvancedSettingsFrame(CTkScrollableFrame):
     def __init__(self, master: CTkFrame):
-        CTkScrollableFrame.__init__(self, master)
-        self.grid_configure(column=5, rows=3)
+        CTkScrollableFrame.__init__(self, master,label_text="Advanced Settings")
         # self.grid_rowconfigure(0, weight=1)
         # self.grid_columnconfigure((0, 1), weight=1)  # type: ignore
         self.rows:list[SettingsRow] = []
@@ -265,21 +258,14 @@ class AdvancedSettingsFrame(CTkScrollableFrame):
 
         self.grid(row=2, rowspan=2, column=1, sticky='nsew',
                   padx=Padding.RIGHT, pady=Padding.BOTTOM)
-        CTkLabel(
-            self,
-            text="Advanced Settings"
-        ).grid(
-            row=0,
-            columnspan=5,
-            sticky='nsew', padx=Padding.SMALL, pady=Padding.SMALL
-        )
+
         CTkButton(
             self, width=28, text="x",
             fg_color='#8b0000',
             hover_color='#650000',
             command=self.del_all_rows
         ).grid(
-            row=1,column = 0,
+            row=0,column = 0,
             sticky="ew",
             padx=Padding.SMALL, pady=Padding.SMALL
         )
@@ -288,7 +274,7 @@ class AdvancedSettingsFrame(CTkScrollableFrame):
             width=140,
             text="Column Name"
         ).grid(
-            row=1, column=1,
+            row=0, column=1,
             sticky='nsew',
             padx=Padding.SMALL,
             pady=Padding.SMALL
@@ -298,7 +284,7 @@ class AdvancedSettingsFrame(CTkScrollableFrame):
             width=36,
             text="Index"
         ).grid(
-            row=1, column=2,
+            row=0, column=2,
             sticky='nsew',
             padx=Padding.SMALL,
             pady=Padding.SMALL
@@ -308,7 +294,7 @@ class AdvancedSettingsFrame(CTkScrollableFrame):
             width=140,
             text="Data Type"
         ).grid(
-            row=1, column=3,
+            row=0, column=3,
             sticky='nsew',
             padx=Padding.SMALL,
             pady=Padding.SMALL
@@ -318,13 +304,13 @@ class AdvancedSettingsFrame(CTkScrollableFrame):
             width=140,
             text="Date Time"
         ).grid(
-            row=1, column=4,
+            row=0, column=4,
             sticky='nsew',
             padx=Padding.SMALL,
             pady=Padding.SMALL
         )
         self.new_row_button = CTkButton(self, text="+", command=self.add_row)
-        self.new_row_button.grid(row=2, column=1)
+        self.new_row_button.grid(row=1, column=1)
 
 
     def add_row(
@@ -347,14 +333,20 @@ class AdvancedSettingsFrame(CTkScrollableFrame):
             self,width=28, text="x",
             fg_color='#8b0000',
             hover_color='#650000',
-            command=(lambda row = self.grid_info()['row']: self.del_row(row-2)))
+        )
+        self.del_buttons.append(del_button)
+        # print(del_button.grid_info())
+        del_button.configure(
+            # TODO: THIS IS BROKEN DOES NOT DELETE CORRECT ROW
+            # command=(lambda row = current_row: self.del_row(row-1)))
+            command=(lambda button = del_button
+                     :self.del_row(button)))
         del_button.grid(
             column=0, row=self.last_row_index,
             sticky='ew', padx=Padding.SMALL,
             pady=Padding.SMALL
         )
 
-        self.del_buttons.append(del_button)
         self.last_row_index += 1
         self.new_row_button.grid(row=self.last_row_index)
         # TODO: Find out why scroll bar isnt updating
@@ -378,11 +370,20 @@ class AdvancedSettingsFrame(CTkScrollableFrame):
             row.date_time_entry.delete(0, END)
 
     def del_row(self, row):
-        # self.del_buttons[row].grid_remove()
-        self.del_buttons[row].destroy()
+        if type(row) is not int:
+            try:
+                row = self.del_buttons.index(row)
+            except TypeError:
+                return
+
+        # print(f"Delete row {row}/{len(self.rows)-1}")
+        if 0 > row > len(self.rows) - 1:
+            return
+        self.del_buttons[row].grid_remove()
+        # self.del_buttons[row].destroy()
         del self.del_buttons[row]
         self.rows[row].del_row()
-        self.rows[row].destroy()
+        # self.rows[row].destroy()
         del self.rows[row]
         for row, button in zip(self.rows[row:], self.del_buttons[row:]):
             new_row = row.grid_info()['row'] - 1
@@ -409,8 +410,9 @@ class AdvancedSettingsFrame(CTkScrollableFrame):
     def set_all(self, settings:dict[str, list]):
         if self.rows:
             if not messagebox.askokcancel(
-            "WARNING",
-            "Proceeding will clear existing rows. Continue anyways?"):
+                "WARNING",
+                "Proceeding will clear existing rows. Continue anyways?"
+            ):
                 return
         self.del_all_rows()
         rows = [
@@ -425,6 +427,8 @@ class AdvancedSettingsFrame(CTkScrollableFrame):
             }
             for i in range(len(settings['names']))
         ]
+        for row in rows:
+            self.add_row(**row)
 
 
 
@@ -958,6 +962,10 @@ class ImportWindow(CTkFrame):
 
 
 if __name__ == '__main__':
+    from os import chdir
+    from os.path import abspath, dirname
     app = CTk()
-    import_win = ImportWindow(app, {})
+    chdir(dirname(abspath(__file__)))
+
+    import_win = ImportWindow(app, DataManager())
     app.mainloop()
