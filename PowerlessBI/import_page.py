@@ -5,8 +5,11 @@ import os
 import tkinter.messagebox as messagebox
 from datetime import datetime
 from tkinter.filedialog import askopenfilename
+import tkinter as tk
 from typing import Any
 from warnings import catch_warnings, simplefilter  # noqa: F401
+from collections import Counter, deque
+
 
 from padding import Padding
 from customtkinter import (END, CTk, CTkButton, CTkEntry, CTkFrame, CTkLabel,
@@ -20,6 +23,9 @@ from ctk_tooltip import CTkTooltip
 from pandas import read_csv
 from pandas.io.parsers.c_parser_wrapper import ensure_dtype_objs
 from data_manager import DataManager  # noqa: F401
+from utils import UpDownButtons
+from numpy import sctypeDict
+
 """
 use a json file but store the converter as a string
 on import eval() the converter
@@ -35,6 +41,21 @@ read only first 100 or so lines initially to evaluate the file
 if screen is not wid enough add horizontal scroll bar or move the spread
 sheet to the bottom
 """
+TYPES = (
+    "",
+    "int8",
+    "int16",
+    "int32",
+    "int64",
+    "uint8",
+    "uint16",
+    "uint32",
+    "uint64",
+    "float32",
+    "float64",
+    "datetime",
+    "timedelta",
+)
 
 
 class FileFrame(CTkFrame):
@@ -44,12 +65,11 @@ class FileFrame(CTkFrame):
     Args:
         CTkFrame (_type_): _description_
     """
+
     def __init__(self, master):
         super().__init__(master)
         self.grid_columnconfigure((0, 1), weight=1)  # type: ignore
         self.grid_columnconfigure(2, weight=0)
-
-
 
         self.home_button = CTkButton(self, width=28, text='⌂',
                                      text_color='black', fg_color='#517f47',
@@ -87,8 +107,7 @@ class FileFrame(CTkFrame):
                                        pady=Padding.BOTTOM, sticky="ns", stick=W)
 
         self.del_button = CTkButton(self, text="Delete Selected",
-                                    # type: ignore
-                                    fg_color=["gray95", "gray10"],
+                                    fg_color=("gray95", "gray10"),
                                     state='disabled')
 
         self.del_button.grid(row=2, column=2, padx=Padding.RIGHT,
@@ -99,7 +118,6 @@ class SettingsFrame(CTkFrame):
 
     def __init__(self, master: CTkFrame):
         CTkFrame.__init__(self, master)
-
 
         self.grid_columnconfigure(0, weight=1)
         self.grid_columnconfigure(1, weight=0)
@@ -136,26 +154,28 @@ class SettingsFrame(CTkFrame):
 
         # consider using textbox
         # https://github.com/TomSchimansky/CustomTkinter/wiki/CTkTextbox
-        self.col_name_entry = CTkEntry(self,
-                                       placeholder_text=
-                                       "Enter row indices to use as header separated by ','",
-                                       width=250, fg_color=("gray95", "gray10"))
-        self.col_name_entry.grid(row=5, column=0, sticky='nsew',
-                                 padx=(40, 16), pady=Padding.BOTTOM)
-        self.col_name_entry.configure(state='disabled')
-
+        self.header_row_number_entry = CTkEntry(
+            self,
+            placeholder_text="Enter row indices to use as header separated by ','",
+            width=250, fg_color=("gray95", "gray10")
+        )
+        self.header_row_number_entry.grid(row=5, column=0, sticky='nsew',
+                                          padx=(40, 16), pady=Padding.BOTTOM)
+        self.header_row_number_entry.configure(state='disabled')
 
     # focus or unfocus from entry box, change color and replace placeholder text
+
     def set_columns(self):
         if self.rad_var.get() == 0:
             self.focus()
-            self.col_name_entry.configure(fg_color=["gray95", "gray10"])
-            self.col_name_entry._activate_placeholder()
-            self.col_name_entry.configure(state='disabled')
+            self.header_row_number_entry.configure(
+                fg_color=("gray95", "gray10"))
+            self.header_row_number_entry._activate_placeholder()
+            self.header_row_number_entry.configure(state='disabled')
         else:
-            self.col_name_entry.configure(
-                state='normal', fg_color=["#F9F9FA", "#343638"])
-            self.col_name_entry.focus()
+            self.header_row_number_entry.configure(
+                state='normal', fg_color=("#F9F9FA", "#343638"))
+            self.header_row_number_entry.focus()
 
 
 class ActionFrame(CTkFrame):
@@ -171,8 +191,7 @@ class ActionFrame(CTkFrame):
 
         # save data or save path
         self.alias_entry = CTkEntry(self, width=250,
-                                    placeholder_text=
-                                    'Enter alias, defaults to file name')
+                                    placeholder_text='Enter alias, defaults to file name')
         self.alias_entry.grid(row=1, column=0, columnspan=2,
                               padx=Padding.LARGE, pady=Padding.TOP,)
 
@@ -199,6 +218,7 @@ Add drop downs/format textboxes for date time
 x <Col name> <dtype> <index> <datetime>
 """
 
+
 class SettingsRow(CTkFrame):
     def __init__(
         self,
@@ -207,14 +227,14 @@ class SettingsRow(CTkFrame):
         is_index: bool = False,
         data_type: str = '',
         date_time: str = ''
-        ):
+    ):
         super().__init__(master)
         # self.grid_configure(column=5, row = 1)
 
         self.name = StringVar(value=name)
-        self.is_index = BooleanVar(value = is_index)
-        self.data_type = StringVar(value = data_type)
-        self.date_time = StringVar(value = date_time)
+        self.is_index = BooleanVar(value=is_index)
+        self.data_type = StringVar(value=data_type)
+        self.date_time = StringVar(value=date_time)
 
         self.name_entry = CTkEntry(
             self, textvariable=self.name)
@@ -229,7 +249,11 @@ class SettingsRow(CTkFrame):
         )
 
         self.data_type = CTkOptionMenu(
-            self, values='', variable=self.data_type)
+            self,
+            # values=[str(key) for key in sctypeDict.keys()],
+            values=TYPES,  # type: ignore
+            variable=self.data_type
+        )
         self.data_type.grid(
             column=2, row=0, sticky='nsew', padx=Padding.SMALL, pady=Padding.SMALL
         )
@@ -246,14 +270,24 @@ class SettingsRow(CTkFrame):
     def del_row(self):
         self.grid_forget()
         del self
-class AdvancedSettingsFrame(CTkScrollableFrame):
-    def __init__(self, master: CTkFrame):
-        CTkScrollableFrame.__init__(self, master,label_text="Advanced Settings")
-        # self.grid_rowconfigure(0, weight=1)
-        # self.grid_columnconfigure((0, 1), weight=1)  # type: ignore
-        self.rows:list[SettingsRow] = []
-        self.del_buttons:list[CTkButton] = []
 
+# TODO: add to rows buttons to move row up and down
+# shift click -> move to top or bottom
+# add new row -> scroll down to center the new row
+
+
+class ColumnSettingsFrame(CTkScrollableFrame):
+
+    def __init__(self, master: CTkFrame):
+        CTkScrollableFrame.__init__(
+            self,
+            master,
+            label_text="Column Settings"
+        )
+
+        self.rows: list[SettingsRow] = []
+        self.del_buttons: list[CTkButton] = []
+        self.up_down_buttons: list[UpDownButtons] = []
         self.last_row_index = 2
 
         self.grid(row=2, rowspan=2, column=1, sticky='nsew',
@@ -265,9 +299,10 @@ class AdvancedSettingsFrame(CTkScrollableFrame):
             hover_color='#650000',
             command=self.del_all_rows
         ).grid(
-            row=0,column = 0,
+            row=0, column=0,
             sticky="ew",
-            padx=Padding.SMALL, pady=Padding.SMALL
+            padx=Padding.SMALL,
+            pady=Padding.SMALL
         )
         CTkLabel(
             self,
@@ -312,60 +347,120 @@ class AdvancedSettingsFrame(CTkScrollableFrame):
         self.new_row_button = CTkButton(self, text="+", command=self.add_row)
         self.new_row_button.grid(row=1, column=1)
 
-
     def add_row(
         self,
         name: str | None = None,
         is_index: bool = False,
         data_type: str = '',
-        date_time: str = ''):
+        date_time: str = ''
+    ):
         """add a row to grid
 
         Args:
             name (str|None, optional): Name for new row. Defaults to None.
         """
         self.grid_rowconfigure(self.last_row_index+2)
-        self.rows.append(SettingsRow(self,  name, is_index, data_type, date_time))
+        self.rows.append(SettingsRow(
+            self,  name, is_index, data_type, date_time))
         self.rows[-1].grid(
-            column=1, row=self.last_row_index, columnspan=4, sticky='nsew',
-            pady = 4)
+            column=1, row=self.last_row_index, columnspan=4, sticky='ew',
+            pady=4)
         del_button = CTkButton(
-            self,width=28, text="x",
+            self, width=28, text="x",
             fg_color='#8b0000',
             hover_color='#650000',
         )
         self.del_buttons.append(del_button)
         # print(del_button.grid_info())
         del_button.configure(
-            # TODO: THIS IS BROKEN DOES NOT DELETE CORRECT ROW
-            # command=(lambda row = current_row: self.del_row(row-1)))
-            command=(lambda button = del_button
-                     :self.del_row(button)))
+            command=(lambda button=del_button: self.del_row(button)))
         del_button.grid(
             column=0, row=self.last_row_index,
             sticky='ew', padx=Padding.SMALL,
             pady=Padding.SMALL
         )
-
+        up_down_button = UpDownButtons(
+            self,
+            lambda button=del_button: self.move_row_up(button),
+            lambda button=del_button: self.move_row_down(button),
+            lambda button=del_button: self.move_row_to_top(button),
+            lambda button=del_button: self.move_row_to_bottom(button),
+            disable_up=(len(self.rows) == 1),
+            disable_down=True
+        )
+        up_down_button.grid(
+            column=5,
+            row=self.last_row_index,
+            sticky='ew', padx=Padding.SMALL,
+            pady=Padding.SMALL
+        )
+        self.up_down_buttons.append(up_down_button)
+        # set previous buttons down button to enabled
+        if len(self.rows) > 1:
+            self.up_down_buttons[-2].activate_down()
         self.last_row_index += 1
         self.new_row_button.grid(row=self.last_row_index)
-        # TODO: Find out why scroll bar isnt updating
-        # self.configure(height=self.winfo_height()+60)
-        # self.configure(height=self.cget("height")+60)
-        return
+        self.focus_end()
+
+    def focus_end(self):
+        self._parent_canvas.configure(scrollregion=self._parent_canvas.bbox("all"))
+        # self._fit_frame_dimensions_to_canvas()
+        # TODO: scroll to better center newly added text box
+        # Create a dummy event object
+        event = tk.Event()
+
+        # Set the attributes of the event object to simulate a scroll event
+        event.delta = -120  # Positive value for scrolling up, negative for scrolling down
+        event.x = self.winfo_pointerx()
+        event.y = self.winfo_pointery()
+        event.widget = self._parent_canvas
+        self._mouse_wheel_all(event)
+        # self._parent_canvas.yview_scroll(120, "units")
+        print(f"Before: {self._parent_canvas.yview()}")
+        # self._parent_canvas.yview_moveto(1.0)
+        # print(f"After: {self._parent_canvas.yview()}")
+
 
     def del_all_rows(self):
         while self.del_buttons:
             del_button = self.del_buttons[-1]
             del_button.invoke()
 
+    def swap_rows(self, row1, row2):
+        # messagebox.showinfo('', f'swap row {row1-1} with row {row2-1}')
+        self.rows[row1-1].grid(row=row2+1)
+        self.rows[row2-1].grid(row=row1+1)
+        self.rows[row1-1], self.rows[row2-1] = \
+            self.rows[row2-1], self.rows[row1-1]
+
+    def move_row_up(self, del_button):
+        row = self.del_buttons.index(del_button) + 1
+        self.swap_rows(row, row-1)
+
+    def move_row_down(self, del_button):
+        row = self.del_buttons.index(del_button) + 1
+        self.swap_rows(row, row+1)
+
+    def move_row_to_top(self, del_button):
+        row = self.del_buttons.index(del_button) + 1
+        while row > 1:
+            self.swap_rows(row, row-1)
+            row -= 1
+
+    def move_row_to_bottom(self, del_button):
+        row = self.del_buttons.index(del_button) + 1
+        while row < len(self.rows):
+            self.swap_rows(row, row+1)
+            row += 1
+
     def reset(self):
+        """Sets all row values to defaults
+        """
         for row in self.rows:
             row.name.set('')
             row.name_entry.delete(0, END)
             row.is_index.set(False)
             row.data_type.set('')
-
             row.date_time.set('')
             row.date_time_entry.delete(0, END)
 
@@ -379,35 +474,46 @@ class AdvancedSettingsFrame(CTkScrollableFrame):
         # print(f"Delete row {row}/{len(self.rows)-1}")
         if 0 > row > len(self.rows) - 1:
             return
-        self.del_buttons[row].grid_remove()
+        self.up_down_buttons[-1].grid_remove()
+        # self.up_down_buttons[-1].destroy()
+        del self.up_down_buttons[-1]
+        self.del_buttons[-1].grid_remove()
         # self.del_buttons[row].destroy()
-        del self.del_buttons[row]
+        del self.del_buttons[-1]
         self.rows[row].del_row()
         # self.rows[row].destroy()
         del self.rows[row]
-        for row, button in zip(self.rows[row:], self.del_buttons[row:]):
-            new_row = row.grid_info()['row'] - 1
-            row.grid_configure(row=new_row)
-            button.grid_configure(row = new_row)
+        for r in self.rows[row:]:
+            new_row = r.grid_info()['row'] - 1
+            r.grid_configure(row=new_row)
+
+        if len(self.up_down_buttons) > 0:
+            self.up_down_buttons[-1].disable_down()  # type: ignore
+            self.up_down_buttons[0].disable_up()
 
     def get_settings(self):
+        """Get all data from rows and return in a dict
+
+        Returns:
+            dict: settings from rows
+        """
         names = []
         indices = []
         data_types = []
         datetime = []
 
-        for i,row in enumerate(self.rows):
+        for _, row in enumerate(self.rows):
             names.append(row.name.get())
             indices.append(row.is_index.get())
             data_types.append(row.data_type.get())
             datetime.append(row.date_time.get())
 
-        return {"col_names":names,
-                "indices":indices,
-                "dtypes":data_types,
-                "datetime":datetime}
+        return {"col_names": names,
+                "indices": indices,
+                "dtypes": data_types,
+                "datetime": datetime}
 
-    def set_all(self, settings:dict[str, list]):
+    def set_all(self, settings: dict[str, list]):
         if self.rows:
             if not messagebox.askokcancel(
                 "WARNING",
@@ -417,7 +523,7 @@ class AdvancedSettingsFrame(CTkScrollableFrame):
         self.del_all_rows()
         rows = [
             {
-                'name':settings['names'][i],
+                'name': settings['names'][i],
                 'is_index':True if i in settings['index'] else False,
                 'data_type':settings['dtype'][settings['names'][i]]
                 if settings['names'][i] in settings['dtype'] else '',
@@ -429,10 +535,6 @@ class AdvancedSettingsFrame(CTkScrollableFrame):
         ]
         for row in rows:
             self.add_row(**row)
-
-
-
-
 
 
 class ViewFrame(CTkFrame):
@@ -451,7 +553,7 @@ class ImportWindow(CTkFrame):
     Path and import settings can be saved to path_settings.json
     """
 
-    def __init__(self, master: CTk, data_manager:DataManager) -> None:
+    def __init__(self, master: CTk, data_manager: DataManager) -> None:
         """initialize ImportWindow
 
         Args:
@@ -471,7 +573,8 @@ class ImportWindow(CTkFrame):
         # self.path_settings = path_settings
         self.data_manager = data_manager
         self.path_settings_alias = ['']
-        self.path_settings_alias.extend(list(self.data_manager.get_path_settings()))
+        self.path_settings_alias.extend(
+            list(self.data_manager.get_path_settings()))
 
         self.path_text = StringVar()
         self.delim = StringVar(value='')
@@ -489,13 +592,13 @@ class ImportWindow(CTkFrame):
                                                        command=self.fill_form)
         self.file_frame.del_button.configure(command=self.del_selected)
         self.file_frame.grid(row=0, column=0, columnspan=2,
-                        sticky="nsew", padx=Padding.LARGE,
-                        pady=Padding.TOP)
+                             sticky="nsew", padx=Padding.LARGE,
+                             pady=Padding.TOP)
         # create frame to input settings
         self.settings_frame = SettingsFrame(self)
         self.settings_frame.delim_entry.configure(textvariable=self.delim)
         self.settings_frame.grid(row=1, column=0, sticky="nsew",
-                  padx=Padding.LEFT, pady=Padding.SMALL)
+                                 padx=Padding.LEFT, pady=Padding.SMALL)
 
         # create frame for action buttons
         self.act_frame = ActionFrame(self)
@@ -503,11 +606,11 @@ class ImportWindow(CTkFrame):
         self.act_frame.save_fp_button.configure(command=self.save_data_frame)
         self.act_frame.save_path_button.configure(command=self.save_prep)
         self.act_frame.grid(row=1, column=1, sticky="new",
-                  padx=Padding.RIGHT, pady=Padding.SMALL)
+                            padx=Padding.RIGHT, pady=Padding.SMALL)
         # create frame for advanced options
-        self.adv_frame = AdvancedSettingsFrame(self)
-        self.adv_frame.grid(row=2, rowspan = 2,column = 0, columnspan=2,sticky="nsew",
-                            padx = Padding.LARGE, pady = Padding.BOTTOM)
+        self.adv_frame = ColumnSettingsFrame(self)
+        self.adv_frame.grid(row=2, rowspan=3, column=0, columnspan=2, sticky="nsew",
+                            padx=Padding.LARGE, pady=Padding.BOTTOM)
 
         screen_width = self.winfo_screenwidth()
         height = self.winfo_height()
@@ -588,27 +691,41 @@ class ImportWindow(CTkFrame):
         return False
     ### add type checking ###
     # read settings and do type checkikng
+
     def read_form(self):
         # get path
         file_loc = self.path_text.get()  # check validity later
         rad_var = self.settings_frame.rad_var.get()  # always valid
         delim = self.delim.get() if self.delim.get() else None
-        # index_str = self.settings_frame.index_entry.get(
-        # ) if self.settings_frame.index_entry.get() else ''  # check validity
         adv_settings = self.adv_frame.get_settings()
         if adv_settings:
-            index:list[int]|None = [i for i, b_var in enumerate(adv_settings["indices"]) if b_var]
-            names:list[str]|None = adv_settings['col_names']
-            data_type:dict[str, str]|None = {name:dtype
-                         for name,dtype in zip(names, adv_settings['dtypes']) if dtype}
-            dt_parser:bool|list[int]|list[str] = self.parse_dt(adv_settings['datetime'])
+            index: list[int] | None = [i for i, b_var in enumerate(adv_settings["indices"])
+                                       if b_var]
+            names: list[str] | None = adv_settings['col_names']
+            # validate names
+            names_counts = Counter(names)
+            if (len(names) < len(names_counts) and
+                    messagebox.askyesno(
+                    "Name overlap:",
+                    "Append duplicate names with numbers?")
+                    ):
+                # create list of unique/mangled names
+                t_names = deque(maxlen=len(names))
+                for name in names[::-1]:
+                    t_names.appendleft(name+f"{names_counts[name]}")
+                    names_counts[name] -= 1
+                names = list(t_names)
+
+            data_type: dict[str, str] | None = {name: dtype
+                                                for name, dtype in zip(names, adv_settings['dtypes']) if dtype}
+            dt_parser: bool | list[int] | list[str] = self.parse_dt(
+                adv_settings['datetime'])
         else:
             names = None
             # header = 'infer'
             index = None
             data_type = None
             dt_parser = False
-
 
         # self.data_manager.process()
         # get column names
@@ -625,8 +742,6 @@ class ImportWindow(CTkFrame):
         if settings is None:
             raise TypeError
         return settings
-
-
 
         # C:\ProgramData\Anaconda3\envs\DSCI1302\Lib\site-packages\pandas\core\dtypes\common.py
         # pandas>io>parsers>c_parser_wrapper.py>ensure_dtype_objs
@@ -691,12 +806,12 @@ class ImportWindow(CTkFrame):
         self.fill_placeholder_entry(self.act_frame.alias_entry, selected)
         # fill rows in adv_frame
         adv_frame_settings = {
-            'names':settings['names'],
-            'is_index':settings['index_col'],
-            'dtype':settings['dtype'],
+            'names': settings['names'],
+            'is_index': settings['index_col'],
+            'dtype': settings['dtype'],
             # TODO: implement date conversion based on default from settings
 
-            'parse_dates':self.data_manager.convert_dates(settings['parse_dates'])
+            'parse_dates': self.data_manager.convert_dates(settings['parse_dates'])
         }
         self.adv_frame.set_all(adv_frame_settings)
         # fill converter box
@@ -761,7 +876,6 @@ class ImportWindow(CTkFrame):
 
     def add_df(self, settings_in: dict):
         settings = settings_in.copy()
-
 
         if isinstance(settings['dtype'], dict):
             settings['dtype'] = self.convert(settings['dtype'])
@@ -966,6 +1080,6 @@ if __name__ == '__main__':
     from os.path import abspath, dirname
     app = CTk()
     chdir(dirname(abspath(__file__)))
-
+    app.grid_columnconfigure((0, 1), weight=1)  # type: ignore
     import_win = ImportWindow(app, DataManager())
     app.mainloop()

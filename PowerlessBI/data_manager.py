@@ -23,7 +23,7 @@ class DataManager:
     def __init__(self) -> None:
         self.directory = os.getcwd()
         self.settings = self.settings_json()
-        self.save_path = self.settings['saves_path']
+        self.save_path:str = self.settings['saves_path']
         if os.path.exists(self.save_path):
             self.save_folders = os.listdir(self.save_path)
         else:
@@ -42,11 +42,11 @@ class DataManager:
     def parse_inputs(
         self,
         file_loc:str,
-        delim:str,
+        delim:str|None,
         rad_var:int,
-        col_names:list[str],
+        col_names:list[str]|None,
         index_list:list[int]|None,
-        data_type:dict[str, str]|None,
+        data_type:dict[str,str]|None,
         dt_parser_str:list[str]|bool|None,
     ):
         # TODO: implement DT parser
@@ -62,12 +62,14 @@ class DataManager:
                 except TypeError:
                     raise TypeError
 
-        settings = {name: set for name, set in zip(['filepath_or_buffer', 'dtype',
-                                                    'names','header', 'sep',
-                                                    'index_col','parse_dates'],
-                                                [file_loc, data_type, col_names, header,
-                                                    delim, index_list, dt_parser])
-                }
+        settings = {
+            name: set for name, set in zip(['filepath_or_buffer', 'dtype',
+                                            'names','header', 'sep',
+                                            'index_col','parse_dates'],
+                                            [file_loc, data_type, col_names, header,
+                                            delim, index_list, dt_parser]
+                                            )
+        }
 
         print(settings)
         if not settings['dtype']:
@@ -117,6 +119,7 @@ class DataManager:
             # create hard reference copy of file
             os.system(f"cp {path_settings['filepath_or_buffer']}"
                       f"{self.save_path + alias}/data/")
+
 
         # create parquet if file is of supported type
         # if file_type == "csv":
