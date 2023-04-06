@@ -151,17 +151,18 @@ class DataManager:
 
         return data
 
-    def save_data_frame(self, settings):
+    def save_data_frame(self, path, selected, index_name, settings):
         """ Save pandas DataFrame displayed in table as csv"""
         # get path name and alias/new file name
-        path = self.path_text.get()
+
         if not path:
             messagebox.showerror('ERROR', message='Select a file path')
             return None
 
         # check if user intends to overwrite existing save
-        overwrite = True
-        if self.selected.get() != '':
+        if selected != '':
+            overwrite = True
+
             overwrite = messagebox.askyesnocancel(
                 'Warning',
                 message='Overwrite the selected path?\n'
@@ -169,10 +170,10 @@ class DataManager:
                 ' overwriting, or Cancel to exit.'
             )
 
-        if overwrite is False:
-            self.selected.set('')
-        elif overwrite is None:
-            return None
+            if overwrite is False:
+                selected = ''# TODO: Get new name
+            elif overwrite is None:
+                return None
 
         # Check for valid path
         try:
@@ -191,7 +192,7 @@ class DataManager:
         self.act_frame.alias_entry.setvar(path)
 
         # get settings
-        index_name = self.table.model.df.index.name
+        index_name = index_name # self.table.model.df.index.name
         settings = {
             'filepath_or_buffer': path,
             'names': None,
