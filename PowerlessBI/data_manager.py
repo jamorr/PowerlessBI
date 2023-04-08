@@ -15,7 +15,6 @@ make folder in my documents
 import json
 import os
 import pandas as pd
-from tkinter import messagebox
 import ast
 import pandas.io.parsers.c_parser_wrapper as pandas_type_parser
 import shutil
@@ -28,7 +27,7 @@ class DataManager:
         except FileNotFoundError:
             # TODO: implement run_setup()
             pass
-        self.save_path:str = self.settings['saves_path']
+        self.save_path:str = self.settings['saves_path'] + '/'
         if os.path.exists(self.save_path):
             self.save_folders = os.listdir(self.save_path)
         else:
@@ -47,40 +46,41 @@ class DataManager:
 
     def delete_selected(self, selected):
         """delete selected save completely"""
-        shutil.rmtree(self.save_path+'/'+selected)
+        shutil.rmtree(self.save_path+selected)
+        # TODO: add error handling/popup/logging
         self.save_folders = self.get_path_settings()
 
     def rename_selected(self, selected, new_name):
         """rename selected save"""
         # if new names also in path
         try:
-            os.rename(self.save_path + '/' + selected, self.save_path + '/' + new_name)
+            os.rename(self.save_path + selected, self.save_path + new_name)
         except os.error:
-            os.mkdir(self.save_path + '/' + new_name)
+            os.mkdir(self.save_path + new_name)
 
     def load_selected_settings(self, selected:str) -> dict:
         """loads read settings for a save if they exist"""
 
         try:
-            with open(self.save_path+'/'+selected+'/path_settings.json', 'r') as f:
+            with open(self.save_path+selected+'/path_settings.json', 'r') as f:
                 path_settings = json.loads(f.read())
         except FileNotFoundError:
             path_settings = {}
         return path_settings
 
     def load_selected_dtypes(self, selected:str) -> dict:
-        """loads dtype settings for sace if they exist.
+        """loads dtype settings for save if they exist.
         If they don't and path settings exists, convert dtypes to
         correct format and save."""
         try:
-            with open(self.save_path+'/'+selected+'/type_dict.json', 'r') as f:
+            with open(self.save_path+selected+'/type_dict.json', 'r') as f:
                 data_types = json.loads(f.read())
         except FileNotFoundError:
             # TODO: make convert dtypes a utility function and call it on
             # path settings if they exist
             # File was not found, so create the file and write some default data to it
             default_data = {}
-            with open(self.save_path+'/'+selected+'/type_dict.json', 'x') as f:
+            with open(self.save_path+selected+'/type_dict.json', 'x') as f:
                 f.write(json.dumps(default_data))
             data_types = default_data
 
@@ -146,9 +146,9 @@ class DataManager:
         if os.path.exists(self.save_path+alias):
             print("Save already exists.")
             return
-        os.mkdir(self.save_path+'/'+alias)
-        os.mkdir(self.save_path+'/'+alias+"/data")
-        os.mkdir(self.save_path+'/'+alias+"/plots")
+        os.mkdir(self.save_path+alias)
+        os.mkdir(self.save_path+alias+"/data")
+        os.mkdir(self.save_path+alias+"/plots")
 
         # create json containing path settings, type dict,
         # and operations performed after import
@@ -158,21 +158,22 @@ class DataManager:
         #     "operations": operations
         # }
 
-        with open(self.save_path+'/'+alias+'/path_settings.json', 'x') as f:
+        with open(self.save_path+alias+'/path_settings.json', 'x') as f:
             # f.seek(0)
             json.dump(path_settings, f, indent=4, sort_keys=True)
 
-        with open(self.save_path+'/'+alias+'/type_dict.json', 'x') as f:
+        with open(self.save_path+alias+'/type_dict.json', 'x') as f:
             # f.seek(0)
             json.dump(data_types, f, indent=4, sort_keys=True)
 
 
         if os.path.exists(path_settings['filepath_or_buffer']) and \
             path_settings['filepath_or_buffer'] not in \
-                os.listdir(f"{self.save_path+'/'+ alias}/data/"):
+                os.listdir(f"{self.save_path+ alias}/data/"):
             # create hard reference copy of file
             os.link(path_settings['filepath_or_buffer'], # type: ignore
-                    self.save_path+'/'+alias+'/data/')
+                    self.save_path+alias+'/data/'+
+                    os.path.basename(path_settings['filepath_or_buffer']))
 
 
         # create parquet if file is of supported type
@@ -208,16 +209,48 @@ class DataManager:
     # update json file with updated dict
     def update_path_json(self, selected, path_settings):
         # write updated settings dict to file
-        with open(self.save_path+'/'+selected+'/path_settings.json', 'w') as f:
+        with open(self.save_path+selected+'/path_settings.json', 'w') as f:
             f.seek(0)
             json.dump(path_settings, f, indent=4, sort_keys=True)
 
     def update_type_json(self, selected, data_types):
-        with open(self.save_path+'/'+selected+'/type_dict.json', 'w') as f:
+        with open(self.save_path+selected+'/type_dict.json', 'w') as f:
             f.seek(0)
             json.dump(data_types, f, indent=4, sort_keys=True)
 
 
 if __name__ == "__main__":
+    os.chdir(os.path.dirname(os.path.abspath(__file__)))
+
     data = DataManager()
     [print(str(var)) for var in vars(data).items()]
+    data.new_save("Folds", {
+        "converters": None,
+        "dtype": {
+            "AP": "float64",
+            "AT": "float64",
+            "PE": "float64",
+            "RH": "float64",
+            "V": "float64"
+        },
+        "filepath_or_buffer":
+            "C:/Users/Morri/Documents/Notebooks/DSCI1302/Folds test.csv",
+        "header": 0,
+        "index_col": 0,
+        "names": None,
+        "parse_dates": False,
+        "sep": ","
+    },
+                  {
+        "cat": [],
+        "num": [
+            "AT",
+            "V",
+            "AP",
+            "RH",
+            "PE"
+        ],
+        "ord": [],
+        "time": []
+    }, [])
+    data.delete_selected("Folds")
