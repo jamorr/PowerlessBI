@@ -176,8 +176,8 @@ class WindowManager(CTk):
         self.sel_window_grid()
 
     def create_vis(self):
-        x_vars = [var for var, tup in self.var_window.x_checkboxes.items(
-        ) if tup[0].get() is True and var in self.var_window.selectable_x_vars]
+        x_vars = [var for var, tup in self.var_window.x_checkboxes.items()
+                  if tup[0].get() is True and var in self.var_window.selectable_x_vars]
         # print(x_vars)
         # check if x_vars are showing
         y_var = self.var_window.selected_y_var.get()
