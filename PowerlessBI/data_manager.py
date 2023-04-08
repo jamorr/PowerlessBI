@@ -18,11 +18,16 @@ import pandas as pd
 from tkinter import messagebox
 import ast
 import pandas.io.parsers.c_parser_wrapper as pandas_type_parser
+import shutil
 
 class DataManager:
     def __init__(self) -> None:
         self.directory = os.getcwd()
-        self.settings = self.settings_json()
+        try:
+            self.settings = self.settings_json()
+        except FileNotFoundError:
+            # TODO: implement run_setup()
+            pass
         self.save_path:str = self.settings['saves_path']
         if os.path.exists(self.save_path):
             self.save_folders = os.listdir(self.save_path)
@@ -32,12 +37,54 @@ class DataManager:
             self.save_folders = os.listdir(self.save_path)
 
     def settings_json(self):
+        """loads PowerlessBI settings found in main folder"""
         with open("../settings.json", "r") as f:
             return json.load(f)
 
     def get_path_settings(self) -> list[str]:
+        """load existing saves from directory listed in main settings"""
         return self.save_folders
 
+    def delete_selected(self, selected):
+        """delete selected save completely"""
+        shutil.rmtree(self.save_path+'/'+selected)
+        self.save_folders = self.get_path_settings()
+
+    def rename_selected(self, selected, new_name):
+        """rename selected save"""
+        # if new names also in path
+        try:
+            os.rename(self.save_path + '/' + selected, self.save_path + '/' + new_name)
+        except os.error:
+            os.mkdir(self.save_path + '/' + new_name)
+
+    def load_selected_settings(self, selected:str) -> dict:
+        """loads read settings for a save if they exist"""
+
+        try:
+            with open(self.save_path+'/'+selected+'/path_settings.json', 'r') as f:
+                path_settings = json.loads(f.read())
+        except FileNotFoundError:
+            path_settings = {}
+        return path_settings
+
+    def load_selected_dtypes(self, selected:str) -> dict:
+        """loads dtype settings for sace if they exist.
+        If they don't and path settings exists, convert dtypes to
+        correct format and save."""
+        try:
+            with open(self.save_path+'/'+selected+'/type_dict.json', 'r') as f:
+                data_types = json.loads(f.read())
+        except FileNotFoundError:
+            # TODO: make convert dtypes a utility function and call it on
+            # path settings if they exist
+            # File was not found, so create the file and write some default data to it
+            default_data = {}
+            with open(self.save_path+'/'+selected+'/type_dict.json', 'x') as f:
+                f.write(json.dumps(default_data))
+            data_types = default_data
+
+        return  data_types
 
     def parse_inputs(
         self,
@@ -99,26 +146,33 @@ class DataManager:
         if os.path.exists(self.save_path+alias):
             print("Save already exists.")
             return
-        os.mkdir(self.save_path+alias)
-        os.mkdir(self.save_path+alias+"/data")
-        os.mkdir(self.save_path+alias+"/plots")
+        os.mkdir(self.save_path+'/'+alias)
+        os.mkdir(self.save_path+'/'+alias+"/data")
+        os.mkdir(self.save_path+'/'+alias+"/plots")
 
         # create json containing path settings, type dict,
         # and operations performed after import
-        save_settings = {
-            "path_settings": path_settings,
-            "data_types": data_types,
-            "operations": operations
-        }
-        with open(self.save_path+alias+"/settings.json", "w") as f:
-            json.dump(save_settings, f)
+        # save_settings = {
+        #     "path_settings": path_settings,
+        #     "data_types": data_types,
+        #     "operations": operations
+        # }
+
+        with open(self.save_path+'/'+alias+'/path_settings.json', 'x') as f:
+            # f.seek(0)
+            json.dump(path_settings, f, indent=4, sort_keys=True)
+
+        with open(self.save_path+'/'+alias+'/type_dict.json', 'x') as f:
+            # f.seek(0)
+            json.dump(data_types, f, indent=4, sort_keys=True)
+
 
         if os.path.exists(path_settings['filepath_or_buffer']) and \
             path_settings['filepath_or_buffer'] not in \
-                os.listdir(f"{self.save_path + alias}/data/"):
+                os.listdir(f"{self.save_path+'/'+ alias}/data/"):
             # create hard reference copy of file
-            os.system(f"cp {path_settings['filepath_or_buffer']}"
-                      f"{self.save_path + alias}/data/")
+            os.link(path_settings['filepath_or_buffer'], # type: ignore
+                    self.save_path+'/'+alias+'/data/')
 
 
         # create parquet if file is of supported type
@@ -151,70 +205,15 @@ class DataManager:
 
         return data
 
-    def save_data_frame(self, path, selected, index_name, settings):
-        """ Save pandas DataFrame displayed in table as csv"""
-        # get path name and alias/new file name
-
-        if not path:
-            messagebox.showerror('ERROR', message='Select a file path')
-            return None
-
-        # check if user intends to overwrite existing save
-        if selected != '':
-            overwrite = True
-
-            overwrite = messagebox.askyesnocancel(
-                'Warning',
-                message='Overwrite the selected path?\n'
-                'Select Yes to proceed, No to save without'
-                ' overwriting, or Cancel to exit.'
-            )
-
-            if overwrite is False:
-                selected = ''# TODO: Get new name
-            elif overwrite is None:
-                return None
-
-        # Check for valid path
-        try:
-            dirname = os.path.dirname(path)
-        except AttributeError or TypeError:
-            messagebox.showerror('ERROR', message='Invalid Path')
-            return None
-
-        # get alias from path name/input if no alias given
-        alias = self.check_alias(self.act_frame.alias_entry.get())
-        if alias is None:
-            return None
-
-        # get path and set new path
-        path = dirname + '/' + alias + '.csv'
-        self.act_frame.alias_entry.setvar(path)
-
-        # get settings
-        index_name = index_name # self.table.model.df.index.name
-        settings = {
-            'filepath_or_buffer': path,
-            'names': None,
-            'header': self.last_import['header']
-            if self.last_import is not None else 'infer',
-            'sep': ",", # figure out how to get separator from df
-            'index_col': index_name if index_name is not None else 0,
-            'converters': None, 'parse_dates': False
-        }
-
-        # save file to path and save path to json
-        self.table.model.df.to_csv(f'{path}')
-
     # update json file with updated dict
-    def update_path_json(self, path_settings):
+    def update_path_json(self, selected, path_settings):
         # write updated settings dict to file
-        with open('path_settings.json', 'w') as f:
+        with open(self.save_path+'/'+selected+'/path_settings.json', 'w') as f:
             f.seek(0)
             json.dump(path_settings, f, indent=4, sort_keys=True)
 
-    def update_type_json(self, data_types):
-        with open('type_dict.json', 'w') as f:
+    def update_type_json(self, selected, data_types):
+        with open(self.save_path+'/'+selected+'/type_dict.json', 'w') as f:
             f.seek(0)
             json.dump(data_types, f, indent=4, sort_keys=True)
 
