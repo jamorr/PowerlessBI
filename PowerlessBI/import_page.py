@@ -125,42 +125,76 @@ class SettingsFrame(CTkFrame):
 
         self.rad_var = IntVar(value=0)
 
-        CTkLabel(self, text='Set separator character(s):',
-                 anchor='e').grid(row=0, column=0, stick=W,
-                                  padx=Padding.LEFT, pady=Padding.TOP)
+        CTkLabel(
+            self,
+            text='Set separator character(s):',
+            anchor='e'
+        ).grid(row=0, column=0,
+               stick=W,
+               padx=Padding.LEFT,
+               pady=Padding.TOP
+        )
 
         self.delim_entry = CTkEntry(self, width=20)
-        self.delim_entry.grid(row=0, column=0, stick=E,
-                              sticky='nse', padx=Padding.RIGHT,
-                              pady=Padding.TOP)
+        self.delim_entry.grid(
+            row=0, column=0,
+            stick=E, sticky='nse',
+            padx=Padding.RIGHT,
+            pady=Padding.TOP
+        )
 
-        CTkLabel(self, text='Set column names:',
-                 anchor='e').grid(row=1, column=0, stick=W,
-                                  padx=Padding.LARGE, pady=Padding.TOP)
+        CTkLabel(
+            self,
+            text='Set header row:',
+            anchor='e'
+        ).grid(
+            row=1, column=0,
+            stick=W,
+            padx=Padding.LARGE,
+            pady=Padding.TOP
+        )
 
-        self.header_rad_0 = CTkRadioButton(self, value=0, variable=self.rad_var,
-                                           command=self.set_columns,
-                                           text="Use row as column names",)
+        self.header_rad_0 = CTkRadioButton(
+            self, value=0,
+            variable=self.rad_var,
+            command=self.set_columns,
+            text="Infer column names"
+        )
 
-        self.header_rad_0.grid(row=2, column=0, stick=W,
-                               padx=Padding.LEFT, pady=Padding.SMALL)
+        self.header_rad_0.grid(
+            row=2, column=0,
+            stick=W,
+            padx=Padding.LEFT,
+            pady=Padding.SMALL
+        )
 
         # add button to replace existing names
-        self.header_rad_1 = CTkRadioButton(self, variable=self.rad_var,
-                                           value=1, command=self.set_columns,
-                                           text="Infer column names")
-        self.header_rad_1.grid(row=3, column=0, stick=W,
-                               padx=Padding.LEFT, pady=Padding.SMALL)
+        self.header_rad_1 = CTkRadioButton(
+            self,  value=1,
+            variable=self.rad_var,
+            command=self.set_columns,
+            text="Use row #(s) as column names: "
+        )
+        self.header_rad_1.grid(
+            row=3, column=0,
+            stick=W,
+            padx=Padding.LEFT,
+            pady=Padding.SMALL
+        )
 
         # consider using textbox
         # https://github.com/TomSchimansky/CustomTkinter/wiki/CTkTextbox
         self.header_row_number_entry = CTkEntry(
             self,
             placeholder_text="Enter row indices to use as header separated by ','",
-            width=250, fg_color=("gray95", "gray10")
+            width=250, fg_color=("#F9F9FA", "#343638")
         )
-        self.header_row_number_entry.grid(row=5, column=0, sticky='nsew',
-                                          padx=(40, 16), pady=Padding.BOTTOM)
+        self.header_row_number_entry.grid(
+            row=5, column=0,
+            sticky='nsew',
+            padx=(40, 16),
+            pady=Padding.BOTTOM
+        )
         self.header_row_number_entry.configure(state='disabled')
 
     # focus or unfocus from entry box, change color and replace placeholder text
@@ -169,12 +203,15 @@ class SettingsFrame(CTkFrame):
         if self.rad_var.get() == 0:
             self.focus()
             self.header_row_number_entry.configure(
-                fg_color=("gray95", "gray10"))
+                fg_color=("gray95", "gray10")
+            )
             self.header_row_number_entry._activate_placeholder()
             self.header_row_number_entry.configure(state='disabled')
         else:
             self.header_row_number_entry.configure(
-                state='normal', fg_color=("#F9F9FA", "#343638"))
+                state='normal',
+                fg_color=("#F9F9FA", "#343638")
+            )
             self.header_row_number_entry.focus()
 
 
@@ -190,10 +227,16 @@ class ActionFrame(CTkFrame):
                                 padx=Padding.LARGE, pady=Padding.TOP)
 
         # save data or save path
-        self.alias_entry = CTkEntry(self, width=250,
-                                    placeholder_text='Enter alias, defaults to file name')
-        self.alias_entry.grid(row=1, column=0, columnspan=2,
-                              padx=Padding.LARGE, pady=Padding.TOP,)
+        self.alias_entry = CTkEntry(
+            self, width=250,
+            placeholder_text='Enter alias, defaults to file name'
+        )
+        self.alias_entry.grid(
+            row=1, column=0,
+            columnspan=2,
+            padx=Padding.LARGE,
+            pady=Padding.TOP
+        )
 
         self.save_fp_button = CTkButton(self, text='Save frame & path',)
         self.save_fp_button.grid(row=2, column=0, padx=Padding.LEFT,
@@ -271,11 +314,11 @@ class SettingsRow(CTkFrame):
         self.grid_forget()
         del self
 
-# TODO: add to rows buttons to move row up and down
-# shift click -> move to top or bottom
-# add new row -> scroll down to center the new row
+# TODO: add new row -> scroll down to center the new row
 
-
+# TODO: Consider adding automatic generation of attributes
+# based on file type loaded in using parameter types to guide
+# the generated options
 class ColumnSettingsFrame(CTkScrollableFrame):
 
     def __init__(self, master: CTkFrame):
@@ -400,12 +443,12 @@ class ColumnSettingsFrame(CTkScrollableFrame):
             self.up_down_buttons[-2].activate_down()
         self.last_row_index += 1
         self.new_row_button.grid(row=self.last_row_index)
-        self.focus_end()
+        # self.focus_end()
 
     def focus_end(self):
         self._parent_canvas.configure(scrollregion=self._parent_canvas.bbox("all"))
         # self._fit_frame_dimensions_to_canvas()
-        # TODO: scroll to better center newly added text box
+        # TODO: #2 scroll to better center newly added text box
         # Create a dummy event object
         event = tk.Event()
 
@@ -442,6 +485,7 @@ class ColumnSettingsFrame(CTkScrollableFrame):
         self.swap_rows(row, row+1)
 
     def move_row_to_top(self, del_button):
+        # TODO: #1 fix bug where after deleting all rows, this works improperly
         row = self.del_buttons.index(del_button) + 1
         while row > 1:
             self.swap_rows(row, row-1)
@@ -464,7 +508,8 @@ class ColumnSettingsFrame(CTkScrollableFrame):
             row.date_time.set('')
             row.date_time_entry.delete(0, END)
 
-    def del_row(self, row):
+    def del_row(self, row:int|CTkButton):
+        """Delete row frame"""
         if type(row) is not int:
             try:
                 row = self.del_buttons.index(row)
@@ -483,10 +528,13 @@ class ColumnSettingsFrame(CTkScrollableFrame):
         self.rows[row].del_row()
         # self.rows[row].destroy()
         del self.rows[row]
+
+        # shift all rows below deleted upwards in grid
         for r in self.rows[row:]:
             new_row = r.grid_info()['row'] - 1
             r.grid_configure(row=new_row)
 
+        # update up/down buttons
         if len(self.up_down_buttons) > 0:
             self.up_down_buttons[-1].disable_down()  # type: ignore
             self.up_down_buttons[0].disable_up()
@@ -575,8 +623,12 @@ class ImportWindow(CTkFrame):
         # self.path_settings = path_settings
         self.data_manager = data_manager
         self.path_settings_alias = ['']
+        # self.path_settings_alias.extend(
+        #     list(self.data_manager.get_path_settings()))
+        # consider alternative: Does this auto update?
         self.path_settings_alias.extend(
-            list(self.data_manager.get_path_settings()))
+            self.data_manager.save_folders
+        )
 
         self.path_text = StringVar()
         self.delim = StringVar(value='')
