@@ -1,0 +1,28 @@
+Bottleneck @ file:///C:/ci_311/bottleneck_1676500016583/work
+certifi @ file:///C:/ci_311/certifi_1676421629969/work/certifi
+contourpy==1.0.7
+customtkinter==5.1.2
+cycler==0.11.0
+darkdetect==0.8.0
+fonttools==4.39.3
+future==0.18.3
+kiwisolver==1.4.4
+matplotlib==3.7.1
+mkl-fft==1.3.1
+mkl-random @ file:///C:/ci_311/mkl_random_1676481991689/work
+mkl-service==2.4.0
+numexpr @ file:///C:/ci_311_rebuilds/numexpr_1679001276672/work
+numpy @ file:///C:/ci_311/numpy_and_numpy_base_1676426421739/work
+packaging @ file:///C:/b/abs_ed_kb9w6g4/croot/packaging_1678965418855/work
+pandas @ file:///C:/ci_311_rebuilds/pandas_1679004481142/work
+pandastable==0.13.1
+Pillow==9.5.0
+plotly @ file:///C:/ci_311/plotly_1676443558683/work
+pyarrow==10.0.1
+pyparsing==3.0.9
+python-dateutil @ file:///tmp/build/80754af9/python-dateutil_1626374649649/work
+pytz @ file:///C:/ci_311/pytz_1676427070848/work
+six @ file:///tmp/build/80754af9/six_1644875935023/work
+tenacity @ file:///C:/ci_311/tenacity_1676439462430/work
+wincertstore==0.2
+xlrd==2.0.1
