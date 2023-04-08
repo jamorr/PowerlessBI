@@ -521,9 +521,11 @@ class ColumnSettingsFrame(CTkScrollableFrame):
             ):
                 return
         self.del_all_rows()
+
+
         rows = [
             {
-                'name': settings['names'][i],
+                'name': settings['names'][i] if settings['names'][i] else '',
                 'is_index':True if i in settings['index'] else False,
                 'data_type':settings['dtype'][settings['names'][i]]
                 if settings['names'][i] in settings['dtype'] else '',
@@ -531,7 +533,7 @@ class ColumnSettingsFrame(CTkScrollableFrame):
                 # by default: MM/DD/YYYY
                 'date_time':''
             }
-            for i in range(len(settings['names']))
+            for i in range(len(settings['dtype']))
         ]
         for row in rows:
             self.add_row(**row)
@@ -664,8 +666,8 @@ class ImportWindow(CTkFrame):
     def del_selected(self):
         selected = self.selected.get()
         self.log_action('Deleted path', selected)
-        del self.path_settings[selected]
-
+        # del self.path_settings[selected]
+        self.data_manager.delete_selected(selected)
         # change to blue
         self.file_frame.del_button.configure(
             fg_color=["gray95", "gray10"], state='disabled')
@@ -755,8 +757,8 @@ class ImportWindow(CTkFrame):
                                                  state='disabled')
 
         # delete entry then activate placeholder and change rad button
-        self.settings_frame.col_name_entry._entry.delete(0, END)
-        self.settings_frame.col_name_entry._activate_placeholder()
+        # self.settings_frame.col_name_entry._entry.delete(0, END)
+        # self.settings_frame.col_name_entry._activate_placeholder()
         self.settings_frame.rad_var.set(0)
 
         # delete alias entry and activate placeholder
@@ -780,27 +782,27 @@ class ImportWindow(CTkFrame):
             fg_color='#8b0000', hover_color='#650000', state='normal')
 
         # fill path box
-        settings = self.path_settings[selected]
+        settings = self.data_manager.load_selected_settings(selected) # path_settings[selected]
         # settings = self.data_manager.read_settings(selected)
         self.path_text.set(settings['filepath_or_buffer'])
 
         # fill delim box
-        delim = settings['sep']
+        delim = settings['sep'] if ('sep' in settings) and (settings['sep'] is not None) else ''
         if delim is None:
             delim = ''
         self.delim.set(delim)
 
         # select radio button and fill header names
-        if settings['names'] is not None:
-            if settings['header'] == 0:
-                self.settings_frame.rad_var.set(1)
-            else:
-                self.settings_frame.rad_var.set(2)
-            self.settings_frame.set_columns()
-            self.fill_placeholder_entry(self.settings_frame.col_name_entry,
-                                        settings['names'])
-        else:
-            self.settings_frame.rad_var.set(0)
+        # if settings['names'] is not None:
+        #     if settings['header'] == 0:
+        #         self.settings_frame.rad_var.set(1)
+        #     else:
+        #         self.settings_frame.rad_var.set(2)
+        #     self.settings_frame.set_columns()
+        #     self.fill_placeholder_entry(self.settings_frame.col_name_entry,
+        #                                 settings['names'])
+        # else:
+        #     self.settings_frame.rad_var.set(0)
 
         # fill alias entry box
         self.fill_placeholder_entry(self.act_frame.alias_entry, selected)
@@ -837,7 +839,7 @@ class ImportWindow(CTkFrame):
         entry._entry.insert(0, str(text).replace("'", '"'))
         entry._activate_placeholder()
 
-    def fill_textbox(self, textbox: CTkTextbox, text):
+    def fill_textbox(self, textbox: CTkTextbox, text:str|None):
 
         if text is None:
             text = ''
@@ -914,29 +916,31 @@ class ImportWindow(CTkFrame):
             self.add_df(form)
             # if add_df returns none then return none
 
-        settings = {alias: form}
-        if settings[alias]['dtype'] is None:
+        settings = form
+        if settings['dtype'] is None:
             dtypes = [str(dtype) for dtype in self.table.model.df.dtypes]
             columns = [name for name in self.table.model.df.columns]
             names_types = {name: dtype for name, dtype in zip(columns, dtypes)}
-            settings[alias]['dtype'] = names_types
+            settings['dtype'] = names_types
         # test
         # print([str(dtype) for dtype in self.table.model.df.dtypes])
         selected = self.selected.get()
         if selected != '':
             if alias != selected:
-                del self.path_settings[selected]
+                self.data_manager.rename_selected(selected, alias)
+                # del self.path_settings[selected]
 
         # update dict with new settings
-        self.path_settings.update(settings)
+        # self.path_settings.update(settings)
 
-        converted_types = {alias: self.read_dtypes(settings[alias]['dtype'])}
+        converted_types = self.read_dtypes(settings['dtype'])
 
-        self.data_types.update(converted_types)
-
-        # update path settings json
-        self.update_type_json()
-        self.update_path_json()
+        if alias in self.data_manager.get_path_settings():
+            # update path settings json
+            self.data_manager.update_type_json(alias, converted_types)
+            self.data_manager.update_path_json(alias, settings)
+        else:
+            self.data_manager.new_save(alias, settings, converted_types, [])
         # fill form
         self.selected.set(alias)
         self.fill_form(alias)
