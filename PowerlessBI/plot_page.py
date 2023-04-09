@@ -1,18 +1,17 @@
 from math import sqrt
-from typing import Literal
-from types import FunctionType, MethodType  # noqa: F401
-
+from typing import Callable, Literal
 
 import customtkinter
-from customtkinter import CTk, CTkFrame, CTkToplevel
+
 # import matplotlib.pyplot as plt
 # import seaborn as sns
 import numpy as np
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
-from plotly.subplots import make_subplots
+from customtkinter import CTk, CTkFrame, CTkToplevel
 from pandastable import Table
+from plotly.subplots import make_subplots
 
 """allow creation of a large subplot then adding
 different plots to it before showing it"""
@@ -35,7 +34,7 @@ class PlotData:
                  opacity:int|Literal['infer']|None = None,
                  title_format:str = "{x} by {y}",
                  main_title:str = "",
-                 master:CTk = None):
+                 master:CTk|None = None):
         # https://plotly.com/python/interactive-html-export/
         self.main_title = main_title
         self.opacity = opacity
@@ -51,6 +50,40 @@ class PlotData:
         plot = getattr(self, vis_type)
         plot()
 
+    def plot_subplots(self, shared_y:bool, shared_x:bool, add_type_trace:Callable):
+        # create subplots and titles
+        subplot_titles = [self.title_format.format(x = x_var, y = self.y_var)
+                          for x_var in self.x_vars]
+        fig = make_subplots(rows=self.dims[0],
+                            cols=self.dims[1],
+                            shared_yaxes=shared_y,
+                            shared_xaxes=shared_x,
+                            subplot_titles=subplot_titles
+                            )
+        # Create a plot for each index of the figure
+        index = np.ndarray(shape = self.dims)
+        for ind, _ in np.ndenumerate(index):
+            ind_x = ind[0] * self.dims[1] + ind[1]
+            if ind_x == len(self.x_vars):
+                break
+
+            x_var = self.x_vars[ind_x]
+            add_type_trace(fig, x_var, ind)
+
+            # Configure Axes titles
+            if shared_y and ind[1] == 0:
+                fig.update_yaxes(row = ind[0]+1, col = ind[1]+1,
+                                 title_text = f"{self.y_var}")
+            elif shared_y is False:
+                fig.update_yaxes(row = ind[0]+1, col = ind[1]+1,
+                                 title_text = f"{self.y_var}")
+
+
+            fig.update_xaxes(row = ind[0]+1, col = ind[1]+1, title_text = f"{x_var}")
+
+
+        fig.update_layout(showlegend=False)
+        fig.show()
 
     def scatter_plot(self):
         self.plot_subplots(True, False, self.add_scatter_trace)
@@ -69,7 +102,6 @@ class PlotData:
     def add_histogram_trace(self, fig:go.Figure, x_var:str, ind:tuple):
         fig.add_trace(go.Histogram(x = self.data_frame[x_var]),
                           row = ind[0]+1, col=ind[1]+1,)
-
 
     def violin_plot(self):
         self.unique_categories = self.data_frame[self.y_var].unique()
@@ -105,40 +137,7 @@ class PlotData:
         fig.update_traces(orientation='h', side='positive',width=3, showlegend = False)
 
 
-    def plot_subplots(self, shared_y:bool, shared_x:bool, add_type_trace:MethodType):
-        # create subplots and titles
-        subplot_titles = [self.title_format.format(x = x_var, y = self.y_var)
-                          for x_var in self.x_vars]
-        fig = make_subplots(rows=self.dims[0],
-                            cols=self.dims[1],
-                            shared_yaxes=shared_y,
-                            shared_xaxes=shared_x,
-                            subplot_titles=subplot_titles
-                            )
-        # Create a plot for each index of the figure
-        index = np.ndarray(shape = self.dims)
-        for ind, _ in np.ndenumerate(index):
-            ind_x = ind[0] * self.dims[1] + ind[1]
-            if ind_x == len(self.x_vars):
-                break
 
-            x_var = self.x_vars[ind_x]
-            add_type_trace(fig, x_var, ind)
-
-            # Configure Axes titles
-            if shared_y and ind[1] == 0:
-                fig.update_yaxes(row = ind[0]+1, col = ind[1]+1,
-                                 title_text = f"{self.y_var}")
-            elif shared_y is False:
-                fig.update_yaxes(row = ind[0]+1, col = ind[1]+1,
-                                 title_text = f"{self.y_var}")
-
-
-            fig.update_xaxes(row = ind[0]+1, col = ind[1]+1, title_text = f"{x_var}")
-
-
-        fig.update_layout(showlegend=False)
-        fig.show()
 
     def line_plot(self):
         fig = px.scatter(data_frame=self.data_frame, x = self.x_vars, y=self.y_var)
