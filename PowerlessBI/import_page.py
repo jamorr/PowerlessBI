@@ -1,12 +1,8 @@
-import ast
-from types import FunctionType
-import json
 import os
 import tkinter.messagebox as messagebox
 from datetime import datetime
 from tkinter.filedialog import askopenfilename
 import tkinter as tk
-from typing import Any
 from warnings import catch_warnings, simplefilter  # noqa: F401
 from collections import Counter, deque
 
@@ -17,14 +13,13 @@ from customtkinter import (END, CTk, CTkButton, CTkEntry, CTkFrame, CTkLabel,
                            IntVar, StringVar, ScalingTracker, CTkInputDialog,
                            CTkScrollableFrame, CTkSwitch, BooleanVar)
 from pandastable import Table
-from ctk_tooltip import CTkTooltip
 # import numpy as np
 # import pandas as pd
 from pandas import read_csv
-from pandas.io.parsers.c_parser_wrapper import ensure_dtype_objs
+# from pandas.io.parsers.c_parser_wrapper import ensure_dtype_objs
 from data_manager import DataManager  # noqa: F401
 from utils import UpDownButtons
-from numpy import sctypeDict
+# from numpy import sctypeDict
 
 """
 use a json file but store the converter as a string
@@ -66,8 +61,8 @@ class FileFrame(CTkFrame):
         CTkFrame (_type_): _description_
     """
 
-    def __init__(self, master):
-        super().__init__(master)
+    def __init__(self, master, **kwargs):
+        super().__init__(master, **kwargs)
         self.grid_columnconfigure((0, 1), weight=1)  # type: ignore
         self.grid_columnconfigure(2, weight=0)
 
@@ -116,8 +111,8 @@ class FileFrame(CTkFrame):
 
 class SettingsFrame(CTkFrame):
 
-    def __init__(self, master: CTkFrame):
-        CTkFrame.__init__(self, master)
+    def __init__(self, master: CTkFrame, **kwargs):
+        CTkFrame.__init__(self, master, **kwargs)
 
         self.grid_columnconfigure(0, weight=1)
         self.grid_columnconfigure(1, weight=0)
@@ -182,8 +177,6 @@ class SettingsFrame(CTkFrame):
             pady=Padding.SMALL
         )
 
-        # consider using textbox
-        # https://github.com/TomSchimansky/CustomTkinter/wiki/CTkTextbox
         self.header_row_number_entry = CTkEntry(
             self,
             placeholder_text="Enter row indices to use as header separated by ','",
@@ -216,8 +209,8 @@ class SettingsFrame(CTkFrame):
 
 
 class ActionFrame(CTkFrame):
-    def __init__(self, master: CTkFrame):
-        super().__init__(master)
+    def __init__(self, master: CTkFrame, **kwargs):
+        super().__init__(master, **kwargs)
 
         self.grid_columnconfigure((0, 1), weight=1)  # type: ignore
         self.grid_rowconfigure((0, 1, 2, 3), weight=0)  # type: ignore
@@ -272,7 +265,6 @@ class SettingsRow(CTkFrame):
         date_time: str = ''
     ):
         super().__init__(master)
-        # self.grid_configure(column=5, row = 1)
 
         self.name = StringVar(value=name)
         self.is_index = BooleanVar(value=is_index)
@@ -453,7 +445,8 @@ class ColumnSettingsFrame(CTkScrollableFrame):
         event = tk.Event()
 
         # Set the attributes of the event object to simulate a scroll event
-        event.delta = -120  # Positive value for scrolling up, negative for scrolling down
+        event.delta = -120  # Positive value for scrolling up,
+        #negative for scrolling down
         event.x = self.winfo_pointerx()
         event.y = self.winfo_pointery()
         event.widget = self._parent_canvas
@@ -485,7 +478,6 @@ class ColumnSettingsFrame(CTkScrollableFrame):
         self.swap_rows(row, row+1)
 
     def move_row_to_top(self, del_button):
-        # TODO: #1 fix bug where after deleting all rows, this works improperly
         row = self.del_buttons.index(del_button) + 1
         while row > 1:
             self.swap_rows(row, row-1)
@@ -508,11 +500,12 @@ class ColumnSettingsFrame(CTkScrollableFrame):
             row.date_time.set('')
             row.date_time_entry.delete(0, END)
 
-    def del_row(self, row:int|CTkButton):
+    def del_row(self, row):
         """Delete row frame"""
         if type(row) is not int:
             try:
                 row = self.del_buttons.index(row)
+                self.last_row_index -= 1
             except TypeError:
                 return
 
@@ -573,7 +566,7 @@ class ColumnSettingsFrame(CTkScrollableFrame):
 
         rows = [
             {
-                'name': settings['names'][i] if settings['names'][i] else '',
+                'name': settings['names'][i] if 'names' in settings else '',
                 'is_index':True if i in settings['index'] else False,
                 'data_type':settings['dtype'][settings['names'][i]]
                 if settings['names'][i] in settings['dtype'] else '',
@@ -615,20 +608,16 @@ class ImportWindow(CTkFrame):
         self.grid_columnconfigure((0, 1), weight=1)  # type: ignore
         self.grid_rowconfigure((0, 1, 2, 3), weight=0)  # type: ignore
         self.grid_rowconfigure(4, weight=1)
-        self.grid(row=0, column=0,
-                  sticky='nsew',
-                  padx=(0, 16))
+
 
         # self.data_types = data_types
         # self.path_settings = path_settings
         self.data_manager = data_manager
-        self.path_settings_alias = ['']
-        # self.path_settings_alias.extend(
-        #     list(self.data_manager.get_path_settings()))
+        self.data_manager.bind("import window",self.update_save_list)
+        self.save_list: list[str]
+        # .extend(
+        #     list(self.data_manager.get_saves()))
         # consider alternative: Does this auto update?
-        self.path_settings_alias.extend(
-            self.data_manager.save_folders
-        )
 
         self.path_text = StringVar()
         self.delim = StringVar(value='')
@@ -636,13 +625,17 @@ class ImportWindow(CTkFrame):
         self.selected = StringVar()
         self.last_import = None  # list of import settings from last import
 
+
+        # TODO: #3 remove config statements and instead pass
+        # commands as arguments to relevant frames
         # create frame to select path and import existing
         self.file_frame = FileFrame(self)
+        self.update_save_list()
         self.file_frame.browse_button.configure(command=self.browse_func)
         self.file_frame.clear_button.configure(command=self.clear_form)
         self.file_frame.path_entry.configure(textvariable=self.path_text)
         self.file_frame.path_settings_option.configure(variable=self.selected,
-                                                       values=self.path_settings_alias,
+                                                       values=self.save_list,
                                                        command=self.fill_form)
         self.file_frame.del_button.configure(command=self.del_selected)
         self.file_frame.grid(row=0, column=0, columnspan=2,
@@ -688,6 +681,7 @@ class ImportWindow(CTkFrame):
                            **{'thefont': ('Arial', font_size),
                               'rowheight': row_height})
         self.table.show()
+
         # self.table.setTheme('bold')
 
     # show frames
@@ -698,21 +692,37 @@ class ImportWindow(CTkFrame):
             # self.grid_columnconfigure(1, weight=2)  # type: ignore
             self.view_frame.grid()
 
-    # update json file with updated dict
-    def update_path_json(self):
-        # write updated settings dict to file
-        with open('path_settings.json', 'w') as f:
-            f.seek(0)
-            json.dump(self.path_settings, f, indent=4, sort_keys=True)
-        self.path_settings_alias = ['']
-        self.path_settings_alias.extend(self.path_settings)
-        self.file_frame.path_settings_option.configure(
-            values=self.path_settings_alias)
 
-    def update_type_json(self):
-        with open('type_dict.json', 'w') as f:
-            f.seek(0)
-            json.dump(self.data_types, f, indent=4, sort_keys=True)
+    def update_save_list(self):
+        # print("Save list updated")
+        self.save_list = ['']
+        if (saves := self.data_manager.get_saves()) is not None:
+            self.save_list.extend(saves)
+        self.file_frame.path_settings_option.configure(
+            values=self.save_list
+        )
+        if self.selected.get() not in self.save_list:
+            self.selected.set("")
+            self.file_frame.del_button.configure(
+                fg_color=("gray95", "gray10"),
+                state='disabled'
+            )
+
+    # # update json file with updated dict
+    # def update_path_json(self):
+    #     # write updated settings dict to file
+    #     with open('path_settings.json', 'w') as f:
+    #         f.seek(0)
+    #         json.dump(self.path_settings, f, indent=4, sort_keys=True)
+    #     self.save_list = ['']
+    #     self.save_list.extend(self.path_settings)
+    #     self.file_frame.path_settings_option.configure(
+    #         values=self.save_list)
+
+    # def update_type_json(self):
+    #     with open('type_dict.json', 'w') as f:
+    #         f.seek(0)
+    #         json.dump(self.data_types, f, indent=4, sort_keys=True)
 
     # delete selected from dict
     def del_selected(self):
@@ -720,12 +730,8 @@ class ImportWindow(CTkFrame):
         self.log_action('Deleted path', selected)
         # del self.path_settings[selected]
         self.data_manager.delete_selected(selected)
+        # calls update_saves_list and self.selected.set('')
         # change to blue
-        self.file_frame.del_button.configure(
-            fg_color=["gray95", "gray10"], state='disabled')
-        self.selected.set('')
-
-        self.data_manager.update_path_json(self.path_settings)
 
     # find file and set entry box to path
     def browse_func(self):
@@ -733,28 +739,34 @@ class ImportWindow(CTkFrame):
             ("CSV files", "*.csv"), ("All files", "*.*")))
         self.path_text.set(filename)
 
-    # TODO: Implement parser for DateTime
-    def parse_dt(self, dt):
-        """Boolean. If True -> try parsing the index. \n\n
-        List of int or names. e.g. If [1, 2, 3] -> try parsing
-         columns 1, 2, 3 each as a separate date column. \n\n
-        List of lists. e.g. If [[1, 3]] -> combine columns 1
-         and 3 and parse as a single date column.
-        Dictionary/Hashmap, e.g. {"foo" : [1, 3]} -> parse columns
-         1, 3 as date and call result 'foo'"""
-        return False
-    ### add type checking ###
-    # read settings and do type checkikng
-
     def read_form(self):
+        """read settings from form
+
+        Raises:
+            TypeError: Incorrect type for inputs
+
+        Returns:
+            dict: settings converted to python types
+        """
         # get path
         file_loc = self.path_text.get()  # check validity later
         rad_var = self.settings_frame.rad_var.get()  # always valid
         delim = self.delim.get() if self.delim.get() else None
         adv_settings = self.adv_frame.get_settings()
+
+        if rad_var == 1:
+            header = [
+                int(s) for s in
+                (self.settings_frame.header_row_number_entry.get()).split(',')
+            ]
+        else:
+            header = 'infer'
+
         if adv_settings:
-            index: list[int] | None = [i for i, b_var in enumerate(adv_settings["indices"])
-                                       if b_var]
+            index: list[int] | None = [
+                i for i, b_var in enumerate(adv_settings["indices"])
+                if b_var
+            ]
             names: list[str] | None = adv_settings['col_names']
             # validate names
             names_counts = Counter(names)
@@ -762,7 +774,7 @@ class ImportWindow(CTkFrame):
                     messagebox.askyesno(
                     "Name overlap:",
                     "Append duplicate names with numbers?")
-                    ):
+                ):
                 # create list of unique/mangled names
                 t_names = deque(maxlen=len(names))
                 for name in names[::-1]:
@@ -770,16 +782,18 @@ class ImportWindow(CTkFrame):
                     names_counts[name] -= 1
                 names = list(t_names)
 
-            data_type: dict[str, str] | None = {name: dtype
-                                                for name, dtype in zip(names, adv_settings['dtypes']) if dtype}
-            dt_parser: bool | list[int] | list[str] = self.parse_dt(
-                adv_settings['datetime'])
+            data_type: dict[str, str] | None = {
+                name: dtype
+                for name, dtype in zip(names, adv_settings['dtypes'])
+                if dtype
+            }
+            dt_parser: list[str] = adv_settings['datetime']
         else:
             names = None
             # header = 'infer'
             index = None
             data_type = None
-            dt_parser = False
+            dt_parser = [""]
 
         # self.data_manager.process()
         # get column names
@@ -787,7 +801,7 @@ class ImportWindow(CTkFrame):
         settings = self.data_manager.parse_inputs(
             file_loc,
             delim,
-            rad_var,
+            header,
             names,
             index,
             data_type,
@@ -805,12 +819,9 @@ class ImportWindow(CTkFrame):
         self.delim.set('')
         if self.selected.get() != '':
             self.selected.set('')
-            self.file_frame.del_button.configure(fg_color=["gray95", "gray10"],
+            self.file_frame.del_button.configure(fg_color=("gray95", "gray10"),
                                                  state='disabled')
 
-        # delete entry then activate placeholder and change rad button
-        # self.settings_frame.col_name_entry._entry.delete(0, END)
-        # self.settings_frame.col_name_entry._activate_placeholder()
         self.settings_frame.rad_var.set(0)
 
         # delete alias entry and activate placeholder
@@ -833,28 +844,15 @@ class ImportWindow(CTkFrame):
         self.file_frame.del_button.configure(
             fg_color='#8b0000', hover_color='#650000', state='normal')
 
-        # fill path box
-        settings = self.data_manager.load_selected_settings(selected) # path_settings[selected]
+        # fill path box  path_settings[selected]
+        settings = self.data_manager.load_selected_settings(selected)
         # settings = self.data_manager.read_settings(selected)
         self.path_text.set(settings['filepath_or_buffer'])
 
         # fill delim box
-        delim = settings['sep'] if ('sep' in settings) and (settings['sep'] is not None) else ''
-        if delim is None:
-            delim = ''
+        delim = settings['sep'] \
+            if ('sep' in settings) and (settings['sep'] is not None) else ''
         self.delim.set(delim)
-
-        # select radio button and fill header names
-        # if settings['names'] is not None:
-        #     if settings['header'] == 0:
-        #         self.settings_frame.rad_var.set(1)
-        #     else:
-        #         self.settings_frame.rad_var.set(2)
-        #     self.settings_frame.set_columns()
-        #     self.fill_placeholder_entry(self.settings_frame.col_name_entry,
-        #                                 settings['names'])
-        # else:
-        #     self.settings_frame.rad_var.set(0)
 
         # fill alias entry box
         self.fill_placeholder_entry(self.act_frame.alias_entry, selected)
@@ -868,8 +866,6 @@ class ImportWindow(CTkFrame):
             'parse_dates': self.data_manager.convert_dates(settings['parse_dates'])
         }
         self.adv_frame.set_all(adv_frame_settings)
-        # fill converter box
-
         self.focus()
 
         # import based on settings
@@ -900,8 +896,10 @@ class ImportWindow(CTkFrame):
         textbox.delete('0.0', 'end')
         textbox.insert('0.0', text)
 
-    # import data with settings and display in frame
     def import_data(self):
+        """import data with settings from form and display in
+        excel-like (view) frame
+        """
         # read settings from form
 
         settings = self.read_form()
@@ -919,20 +917,20 @@ class ImportWindow(CTkFrame):
 
         self.add_df(settings)
 
-    def convert(self, converter):
-        temp = {}
-        for key, value in converter.items():
-            try:
-                temp[key] = eval(value)
-            except:
-                temp[key] = value
-        return temp
+    # def convert(self, converter):
+    #     temp = {}
+    #     for key, value in converter.items():
+    #         try:
+    #             temp[key] = eval(value)
+    #         except:
+    #             temp[key] = value
+    #     return temp
 
     def add_df(self, settings_in: dict):
         settings = settings_in.copy()
 
-        if isinstance(settings['dtype'], dict):
-            settings['dtype'] = self.convert(settings['dtype'])
+        # if isinstance(settings['dtype'], dict):
+        #     settings['dtype'] = self.convert(settings['dtype'])
 
         # try:
         self.table.model.df = read_csv(**settings)
@@ -987,7 +985,7 @@ class ImportWindow(CTkFrame):
 
         converted_types = self.read_dtypes(settings['dtype'])
 
-        if alias in self.data_manager.get_path_settings():
+        if alias in self.data_manager.get_saves():
             # update path settings json
             self.data_manager.update_type_json(alias, converted_types)
             self.data_manager.update_path_json(alias, settings)
@@ -1026,7 +1024,7 @@ class ImportWindow(CTkFrame):
         # Check for valid path
         try:
             dirname = os.path.dirname(path)
-        except:
+        except FileNotFoundError:
             messagebox.showerror('ERROR', message='Invalid Path')
             return None
 
@@ -1042,11 +1040,14 @@ class ImportWindow(CTkFrame):
         # get settings
         index_name = self.table.model.df.index.name
         settings = {
-            'filepath_or_buffer': path, 'names': None,
+            'filepath_or_buffer': path,
+            'names': None,
             'header': self.last_import['header']
             if self.last_import is not None else 'infer',
-            'sep': ",", 'index_col': index_name if index_name is not None else 0,
-            'converters': None, 'parse_dates': False
+            'sep': ",",
+            'index_col': index_name if index_name is not None else 0,
+            'converters': None,
+            'parse_dates': False
         }
 
         # save file to path and save path to json
@@ -1084,7 +1085,7 @@ class ImportWindow(CTkFrame):
     # rework to remove y var and read in existing saves?
     # save list of dtypes to separate json/shelf
     def read_dtypes(self, dtype: dict):
-        dtypes_dict = self.reverse_dict(dtype)
+        dtypes_dict = self.invert_dict(dtype)
         print(dtypes_dict)
         # convert dtypes into appropriate forms
         types_dict = {
@@ -1113,7 +1114,7 @@ class ImportWindow(CTkFrame):
 
         return types_dict
 
-    def reverse_dict(self, d: dict):
+    def invert_dict(self, d: dict):
         output = {}
         for k, v in d.items():
             if v in output:
@@ -1123,7 +1124,6 @@ class ImportWindow(CTkFrame):
         return output
 
     # update log label to show last action
-
     def log_action(self, action: str, alias: str):
         now = datetime.now()
         dt_string = now.strftime("%m/%d/%Y %H:%M:%S")
