@@ -14,10 +14,40 @@ make folder in my documents
 """
 import json
 import os
+from typing import Callable, Literal
 import pandas as pd
-import ast
 import pandas.io.parsers.c_parser_wrapper as pandas_type_parser
 import shutil
+from watchdog.observers import Observer
+from watchdog.events import FileSystemEventHandler
+# from watchdog.utils import BaseThread
+# TODO: #6 add implementation of Observer to watch for real time updates
+class DirectoryHandler(FileSystemEventHandler):
+
+    def __init__(self, dir_path, on_subdirs_update=None):
+        # super().__init__()
+        super(FileSystemEventHandler, self).__init__()
+        self.dir_path:str = dir_path
+        self.subdirs:list[str]
+        self.on_subdirs_update: Callable|None = None
+        self.update_subdirs()
+        self.on_subdirs_update = on_subdirs_update
+
+        self.observer = Observer()
+        self.observer.schedule(self, self.dir_path, recursive=True)
+        self.observer.start()
+
+    def update_subdirs(self):
+        self.subdirs = os.listdir(self.dir_path)
+
+    def on_any_event(self, event):
+        self.update_subdirs()
+        if self.on_subdirs_update:
+            self.on_subdirs_update()
+
+    def stop(self):
+        self.observer.stop()
+        self.observer.join()
 
 class DataManager:
     def __init__(self) -> None:
@@ -28,27 +58,45 @@ class DataManager:
             # TODO: implement run_setup()
             pass
         self.save_path:str = self.settings['saves_path'] + '/'
-        if os.path.exists(self.save_path):
-            self.save_folders = os.listdir(self.save_path)
-        else:
-            # print("settings path does not exist would you like to set one now?")
+        if  not os.path.exists(self.save_path):
             os.mkdir(self.save_path)
-            self.save_folders = os.listdir(self.save_path)
+        self.dir_handler = DirectoryHandler(
+            self.save_path,
+            on_subdirs_update=self.update_subdirs
+        )
+        # below == os.listdir(self.save_path)
+        self.save_folders:list[str] = self.dir_handler.subdirs
+        self.bound_functions:dict[str, Callable] = {}
+
+    def bind(self, key:str, function:Callable):
+        self.bound_functions[key] = function
+
+    def unbind(self, key:str):
+        del self.bound_functions[key]
+
+    def update_subdirs(self):
+        self.update_save_folders()
+        for func in self.bound_functions.values():
+            func()
 
     def settings_json(self):
         """loads PowerlessBI settings found in main folder"""
         with open("../settings.json", "r") as f:
             return json.load(f)
 
-    def get_path_settings(self) -> list[str]:
+    def update_save_folders(self):
+        self.save_folders = self.dir_handler.subdirs
+
+    def get_saves(self) -> list[str]:
         """load existing saves from directory listed in main settings"""
         return self.save_folders
 
     def delete_selected(self, selected):
         """delete selected save completely"""
-        shutil.rmtree(self.save_path+selected)
+        if os.path.exists(self.save_path+selected):
+            shutil.rmtree(self.save_path+selected)
         # TODO: add error handling/popup/logging
-        self.save_folders = self.get_path_settings()
+        # self.save_folders = self.get_saves()
 
     def rename_selected(self, selected, new_name):
         """rename selected save"""
@@ -79,10 +127,10 @@ class DataManager:
             # TODO: make convert dtypes a utility function and call it on
             # path settings if they exist
             # File was not found, so create the file and write some default data to it
-            default_data = {}
-            with open(self.save_path+selected+'/type_dict.json', 'x') as f:
-                f.write(json.dumps(default_data))
-            data_types = default_data
+            data_types = {}
+            # with open(self.save_path+selected+'/type_dict.json', 'x') as f:
+            #     f.write(json.dumps(default_data))
+            # data_types = default_data
 
         return  data_types
 
@@ -90,7 +138,7 @@ class DataManager:
         self,
         file_loc:str,
         delim:str|None,
-        rad_var:int,
+        header:list[int]|Literal['infer'],
         col_names:list[str]|None,
         index_list:list[int]|None,
         data_type:dict[str,str]|None,
@@ -100,14 +148,13 @@ class DataManager:
         dt_parser = self.convert_dates(dt_parser_str)
         if dt_parser is None:
             dt_parser = False
-        header = 'infer' if rad_var == 1 else 0
 
         if data_type:
             for dtype in data_type.values():
                 try:
                     pandas_type_parser.ensure_dtype_objs(dtype)
                 except TypeError:
-                    raise TypeError
+                    raise TypeError(f"{dtype} is not valid dtype")
 
         settings = {
             name: set for name, set in zip(['filepath_or_buffer', 'dtype',
@@ -134,6 +181,13 @@ class DataManager:
 
     # TODO: converts date strings into correct format
     def convert_dates(self, dates):
+        """Boolean. If True -> try parsing the index. \n\n
+        List of int or names. e.g. If [1, 2, 3] -> try parsing
+         columns 1, 2, 3 each as a separate date column. \n\n
+        List of lists. e.g. If [[1, 3]] -> combine columns 1
+         and 3 and parse as a single date column.
+        Dictionary/Hashmap, e.g. {"foo" : [1, 3]} -> parse columns
+         1, 3 as date and call result 'foo'"""
         return
 
     def new_save(self,
@@ -167,13 +221,13 @@ class DataManager:
             json.dump(data_types, f, indent=4, sort_keys=True)
 
 
-        if os.path.exists(path_settings['filepath_or_buffer']) and \
-            path_settings['filepath_or_buffer'] not in \
-                os.listdir(f"{self.save_path+ alias}/data/"):
+        if (os.path.exists(path_settings['filepath_or_buffer']) and # type:ignore
+            path_settings['filepath_or_buffer'] not in
+                os.listdir(f"{self.save_path+ alias}/data/")):
             # create hard reference copy of file
             os.link(path_settings['filepath_or_buffer'], # type: ignore
                     self.save_path+alias+'/data/'+
-                    os.path.basename(path_settings['filepath_or_buffer']))
+                    os.path.basename(path_settings['filepath_or_buffer'])) # type:ignore
 
 
         # create parquet if file is of supported type
@@ -188,8 +242,7 @@ class DataManager:
             print("Save not found.")
             return
 
-        with open(self.save_path+alias+"/settings.json", "r") as f:
-            settings = json.load(f)
+        settings = self.load_selected_settings(alias)
 
         # load data from parquet if available
         if os.path.exists(self.save_path+alias+"/data/data.parquet"):
@@ -221,10 +274,12 @@ class DataManager:
 
 if __name__ == "__main__":
     os.chdir(os.path.dirname(os.path.abspath(__file__)))
-
+    def test_bind():
+        print("Bound function called")
     data = DataManager()
+    data.bind("test", test_bind)
     [print(str(var)) for var in vars(data).items()]
-    data.new_save("Folds", {
+    params = ("Folds", {
         "converters": None,
         "dtype": {
             "AP": "float64",
@@ -253,4 +308,5 @@ if __name__ == "__main__":
         "ord": [],
         "time": []
     }, [])
+    data.new_save(*params)
     data.delete_selected("Folds")
