@@ -14,14 +14,15 @@ make folder in my documents
 """
 import json
 import os
+import shutil
 from typing import Callable, Literal
+
 import pandas as pd
 import pandas.io.parsers.c_parser_wrapper as pandas_type_parser
-import shutil
-from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
-# from watchdog.utils import BaseThread
-# TODO: #6 add implementation of Observer to watch for real time updates
+from watchdog.observers import Observer
+
+
 class DirectoryHandler(FileSystemEventHandler):
 
     def __init__(self, dir_path, on_subdirs_update=None):
