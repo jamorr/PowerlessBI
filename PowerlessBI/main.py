@@ -65,7 +65,6 @@ class WindowManager(CTk):
         self.grid_rowconfigure(0, weight=1)
 
         self.data_manager = DataManager()
-        # self.path_settings: dict
         self.selected_data = StringVar()
 
         self.selection_window_exists = False
@@ -82,14 +81,11 @@ class WindowManager(CTk):
         Place selection window frames in grid\n
         """
         self.grid_columnconfigure(1, weight=0)
-        # self.load_json()
 
         if not self.selection_window_exists:
             # configure comands and init selection_window
             self.selection_window = SelectData(
                 self,
-                # self.path_settings,
-                # self.data_types,
                 self.data_manager,
                 self.type_requirements
             )
@@ -161,11 +157,10 @@ class WindowManager(CTk):
             self,
             vis_type,
             self.data_manager.load_selected_dtypes(self.selected_data.get()),
-            self.type_requirements[vis_type]
+            self.type_requirements[vis_type],
+            self.del_var_window,
+            self.create_vis
         )
-        self.var_window.home_button.configure(command=self.del_var_window)
-        self.var_window.right_frame.gen_button.configure(
-            command=self.create_vis)
         self.var_window.grid(
             row=0, column=0,
             padx=Padding.LARGE,
@@ -178,14 +173,8 @@ class WindowManager(CTk):
         self.sel_window_grid()
 
     def create_vis(self):
-        x_vars = [var for var, tup in self.var_window.x_checkboxes.items()
-                  if tup[0].get() is True and var in self.var_window.selectable_x_vars]
-        # print(x_vars)
-        # check if x_vars are showing
-        y_var = self.var_window.selected_y_var.get()
-        color = self.var_window.selected_color_var.get()
-        color = color if color != '' else None
-        vis_type = "_".join(self.var_window.vis_type.lower().split(' ')) + "_plot"
+        x_vars, y_var, color, vis_type = self.var_window.get_selected_vars()
+
         # instead of data_frame here we could use data manager
         # to load in the data potentially
         settings = self.data_manager.load_selected_settings(self.selected_data.get())
