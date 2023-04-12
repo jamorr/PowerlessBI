@@ -2,7 +2,6 @@ from math import sqrt
 from typing import Callable, Literal
 
 import customtkinter
-
 # import matplotlib.pyplot as plt
 # import seaborn as sns
 import numpy as np
@@ -31,13 +30,13 @@ class PlotData:
                  data_frame:pd.DataFrame,
                  scale:Literal['minmax','standard']|None = None,
                  dimensions:tuple[int,int]|None = None,
-                 opacity:int|Literal['infer']|None = None,
+                 opacity:float|Literal['infer']=1.0,
                  title_format:str = "{x} by {y}",
                  main_title:str = "",
                  master:CTk|None = None):
         # https://plotly.com/python/interactive-html-export/
         self.main_title = main_title
-        self.opacity = opacity
+        self.opacity = opacity if type(opacity) is float else self.estimate_opacity()
         self.scale = scale
         self.x_vars:list[str] = x_vars
         self.y_var = y_var
@@ -52,14 +51,17 @@ class PlotData:
 
     def plot_subplots(self, shared_y:bool, shared_x:bool, add_type_trace:Callable):
         # create subplots and titles
-        subplot_titles = [self.title_format.format(x = x_var, y = self.y_var)
-                          for x_var in self.x_vars]
-        fig = make_subplots(rows=self.dims[0],
-                            cols=self.dims[1],
-                            shared_yaxes=shared_y,
-                            shared_xaxes=shared_x,
-                            subplot_titles=subplot_titles
-                            )
+        subplot_titles = [
+            self.title_format.format(x = x_var, y = self.y_var)
+            for x_var in self.x_vars
+        ]
+        fig = make_subplots(
+            rows=self.dims[0],
+            cols=self.dims[1],
+            shared_yaxes=shared_y,
+            shared_xaxes=shared_x,
+            subplot_titles=subplot_titles
+        )
         # Create a plot for each index of the figure
         index = np.ndarray(shape = self.dims)
         for ind, _ in np.ndenumerate(index):
@@ -72,27 +74,33 @@ class PlotData:
 
             # Configure Axes titles
             if shared_y and ind[1] == 0:
-                fig.update_yaxes(row = ind[0]+1, col = ind[1]+1,
-                                 title_text = f"{self.y_var}")
+                fig.update_yaxes(
+                    row = ind[0]+1, col = ind[1]+1,
+                    title_text = f"{self.y_var}"
+                )
             elif shared_y is False:
-                fig.update_yaxes(row = ind[0]+1, col = ind[1]+1,
-                                 title_text = f"{self.y_var}")
-
+                fig.update_yaxes(
+                    row = ind[0]+1, col = ind[1]+1,
+                    title_text = f"{self.y_var}"
+                )
 
             fig.update_xaxes(row = ind[0]+1, col = ind[1]+1, title_text = f"{x_var}")
-
-
         fig.update_layout(showlegend=False)
         fig.show()
 
     def scatter_plot(self):
         self.plot_subplots(True, False, self.add_scatter_trace)
 
-    def add_scatter_trace(self, fig, x_var, ind):
-        fig.add_trace(go.Scatter(x = self.data_frame[x_var],
-                                     y = self.data_frame[self.y_var],
-                                     mode='markers'),
-                          row = ind[0]+1, col=ind[1]+1)
+    def add_scatter_trace(self, fig:go.Figure, x_var:str, ind:tuple):
+        fig.add_trace(
+            go.Scatter(
+                x = self.data_frame[x_var],
+                y = self.data_frame[self.y_var],
+                mode = 'markers',
+                # hoverlabel=self.title_format.format(x=x_var, y = self.y_var)
+                ),
+            row = ind[0]+1, col=ind[1]+1
+        )
 
     def histogram_plot(self):
         if self.title_format == "{x} by {y}":
@@ -136,9 +144,6 @@ class PlotData:
 
         fig.update_traces(orientation='h', side='positive',width=3, showlegend = False)
 
-
-
-
     def line_plot(self):
         fig = px.scatter(data_frame=self.data_frame, x = self.x_vars, y=self.y_var)
         fig.show()
@@ -161,11 +166,16 @@ class PlotData:
         # plot.write_html(f"{self.save_path}/parallel-plot-{self.x_vars}.html")
 
 
-    def correlation_chart(self):
-
-
-
-        pass
+    def correlation_plot(self):
+        # https://plotly.com/python/heatmaps/
+        correlation = self.data_frame[self.x_vars].corr()
+        mask = np.tril(np.ones_like(correlation, dtype=bool), 0)
+        fig = px.imshow(
+            correlation.where(mask),
+            text_auto=True,
+            # hoverongaps = False # see the go.Figure go.heatmap
+        )
+        fig.show()
 
     def statistics_plot(self):
         df = self.data_frame[self.x_vars]
@@ -188,7 +198,6 @@ class PlotData:
 
         # assign font size and row height with kwargs and construct table
         table:Table = Table(parent=frame,
-                    #showstatusbar=True,showtoolbar=True,
                     **{'thefont': ('Arial', font_size),
                         'rowheight': row_height})
         table.model.df = sum_stats
@@ -206,12 +215,15 @@ class PlotData:
         pass
 
 
-
+    # TODO: #8 implement estimate_opacity based on https://damassets.autodesk.net/content/dam/autodesk/research/publications-assets/pdf/dynamic-opacity-optimization-for.pdf and https://dl.acm.org/doi/epdf/10.1145/964965.808606
     def estimate_opacity(self):
         # colorrgba(rr,gg,bb,a) a is alpha or opacity
+        # based on the number of data points/density of points on the graph
+        # adjust the opacity of points
 
+        # find point of highest density -> opacity == highest density/number of points
 
-        pass
+        return 0.4
 
 
     def nearest_rectangle(self) -> tuple[int, int]:
@@ -250,5 +262,8 @@ if __name__ == "__main__":
     }
     data_frame = pd.read_csv(**settings)
     PlotData(['sulphates', 'chlorides', 'citric acid'],
-             'quality', None, 'violin_plot', data_frame=data_frame)
+                'quality',
+                None,
+                vis_type='correlation_plot',
+                data_frame=data_frame)
 
