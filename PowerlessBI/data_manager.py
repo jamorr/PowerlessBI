@@ -12,6 +12,7 @@ Instead of loading jsons - load folder names first
 make folder in my documents
 
 """
+import pathlib
 import json
 import os
 import shutil
@@ -25,10 +26,10 @@ from watchdog.observers import Observer
 
 class DirectoryHandler(FileSystemEventHandler):
 
-    def __init__(self, dir_path, on_subdirs_update=None):
+    def __init__(self, dir_path:pathlib.Path, on_subdirs_update:Callable|None=None):
         # super().__init__()
         super(FileSystemEventHandler, self).__init__()
-        self.dir_path:str = dir_path
+        self.dir_path:pathlib.Path = dir_path
         self.subdirs:list[str]
         self.on_subdirs_update: Callable|None = None
         self.update_subdirs()
@@ -50,15 +51,17 @@ class DirectoryHandler(FileSystemEventHandler):
         self.observer.stop()
         self.observer.join()
 
+# TODO: #9 swap over to use of Path objects with pathlib from os.path strings
 class DataManager:
     def __init__(self) -> None:
         self.directory = os.getcwd()
         try:
             self.settings = self.settings_json()
         except FileNotFoundError:
-            # TODO: implement run_setup()
+            # TODO: #10 implement run_setup()
             pass
-        self.save_path:str = self.settings['saves_path'] + '/'
+        self.save_path:pathlib.Path = pathlib.Path(self.settings['saves_path'])
+
         if  not os.path.exists(self.save_path):
             os.mkdir(self.save_path)
         self.dir_handler = DirectoryHandler(
@@ -103,15 +106,15 @@ class DataManager:
         """rename selected save"""
         # if new names also in path
         try:
-            os.rename(self.save_path + selected, self.save_path + new_name)
+            os.rename(self.save_path / selected, self.save_path / new_name)
         except os.error:
-            os.mkdir(self.save_path + new_name)
+            os.mkdir(self.save_path / new_name)
 
     def load_selected_settings(self, selected:str) -> dict:
         """loads read settings for a save if they exist"""
 
         try:
-            with open(self.save_path+selected+'/path_settings.json', 'r') as f:
+            with open(self.save_path/selected/'path_settings.json', 'r') as f:
                 path_settings = json.loads(f.read())
         except FileNotFoundError:
             path_settings = {}
@@ -122,7 +125,7 @@ class DataManager:
         If they don't and path settings exists, convert dtypes to
         correct format and save."""
         try:
-            with open(self.save_path+selected+'/type_dict.json', 'r') as f:
+            with open(self.save_path/selected/'type_dict.json', 'r') as f:
                 data_types = json.loads(f.read())
         except FileNotFoundError:
             # TODO: make convert dtypes a utility function and call it on
@@ -198,12 +201,12 @@ class DataManager:
                  operations: list):
 
         # check if dir exists
-        if os.path.exists(self.save_path+alias):
+        if os.path.exists(self.save_path/alias):
             print("Save already exists.")
             return
-        os.mkdir(self.save_path+alias)
-        os.mkdir(self.save_path+alias+"/data")
-        os.mkdir(self.save_path+alias+"/plots")
+        os.mkdir(self.save_path/alias)
+        os.mkdir(self.save_path/alias/"data")
+        os.mkdir(self.save_path/alias/"plots")
 
         # create json containing path settings, type dict,
         # and operations performed after import
@@ -213,21 +216,21 @@ class DataManager:
         #     "operations": operations
         # }
 
-        with open(self.save_path+alias+'/path_settings.json', 'x') as f:
+        with open(self.save_path/alias/'path_settings.json', 'x') as f:
             # f.seek(0)
             json.dump(path_settings, f, indent=4, sort_keys=True)
 
-        with open(self.save_path+alias+'/type_dict.json', 'x') as f:
+        with open(self.save_path/alias/'type_dict.json', 'x') as f:
             # f.seek(0)
             json.dump(data_types, f, indent=4, sort_keys=True)
 
 
         if (os.path.exists(path_settings['filepath_or_buffer']) and # type:ignore
             path_settings['filepath_or_buffer'] not in
-                os.listdir(f"{self.save_path+ alias}/data/")):
+                os.listdir(self.save_path/alias/"data")):
             # create hard reference copy of file
             os.link(path_settings['filepath_or_buffer'], # type: ignore
-                    self.save_path+alias+'/data/'+
+                    self.save_path/alias/'data'+
                     os.path.basename(path_settings['filepath_or_buffer'])) # type:ignore
 
 
@@ -246,8 +249,8 @@ class DataManager:
         settings = self.load_selected_settings(alias)
 
         # load data from parquet if available
-        if os.path.exists(self.save_path+alias+"/data/data.parquet"):
-            data = pd.read_parquet(self.save_path+alias+"/data/data.parquet")
+        if os.path.exists(self.save_path/alias/"data/data.parquet"):
+            data = pd.read_parquet(self.save_path/alias/"data/data.parquet")
         else:
             data = pd.read_csv(settings["path"]) if settings["type"] == "csv"\
                 else pd.read_excel(settings["path"])
@@ -263,12 +266,12 @@ class DataManager:
     # update json file with updated dict
     def update_path_json(self, selected, path_settings):
         # write updated settings dict to file
-        with open(self.save_path+selected+'/path_settings.json', 'w') as f:
+        with open(self.save_path/selected/'path_settings.json', 'w') as f:
             f.seek(0)
             json.dump(path_settings, f, indent=4, sort_keys=True)
 
     def update_type_json(self, selected, data_types):
-        with open(self.save_path+selected+'/type_dict.json', 'w') as f:
+        with open(self.save_path/selected/'type_dict.json', 'w') as f:
             f.seek(0)
             json.dump(data_types, f, indent=4, sort_keys=True)
 
