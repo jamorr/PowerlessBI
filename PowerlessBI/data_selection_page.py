@@ -171,11 +171,16 @@ class SelectData(CTkFrame):
 
 
     def read_dtypes(self, selected):
+        # TODO: Figure out why parallel is active for null selection
         # self.dtypes_count = {key:len(value)
         #                      for key, value in self.data_types[selected].items()}
+        selected_dtypes = self.data_manager.load_selected_dtypes(selected).items()
+        if selected_dtypes is {}:
+            for button in self.ver_frame.vis_buttons.values():
+                button.configure(fg_color=("gray90", "gray13"), state='disabled')
         self.dtypes_count = {
             key:len(value)
-            for key, value in self.data_manager.load_selected_dtypes(selected).items()
+            for key, value in selected_dtypes
         }
         for text, button in self.ver_frame.vis_buttons.items():
             required = self.type_requirements[text]
