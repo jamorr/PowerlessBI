@@ -1,10 +1,10 @@
 # from time import perf_counter_ns
-from typing import Tuple
+from typing import Tuple, Callable
 # from tkinter import colorchooser
 
 from customtkinter import (BooleanVar, CTk, CTkButton, CTkCheckBox, CTkFont,
                            CTkTabview, CTkFrame, CTkLabel, CTkOptionMenu,
-                           StringVar, W)
+                           StringVar, CTkSlider, DoubleVar, CTkSwitch, W)
 
 from padding import Padding
 
@@ -58,13 +58,14 @@ class RightFrame(CTkFrame):
         self.columnconfigure(0, weight=1)
 
     def gen_y_vars(self):
-        CTkLabel(self,
-                 text="Target variable:",
-                 anchor='center'
-                 ).grid(
-                     padx=Padding.LARGE,
-                     pady=Padding.TOP,
-                     sticky="ew"
+        CTkLabel(
+            self,
+            text="Target variable:",
+            anchor='center'
+        ).grid(
+            padx=Padding.LARGE,
+            pady=Padding.TOP,
+            sticky="ew"
         )
 
         self.y_option = CTkOptionMenu(self, )
@@ -72,34 +73,29 @@ class RightFrame(CTkFrame):
                            pady=Padding.SMALL,
                            sticky="ew",)  # stick=W
 
-    def addCheckUncheck(self):
-        self.uncheck = CTkButton(self, text='Clear All',)
+    def add_check_uncheck(self, check, uncheck):
+        self.uncheck = CTkButton(self, text='Clear All',command=uncheck)
         self.uncheck.grid(sticky='ew', padx=Padding.LARGE, pady=Padding.TOP)
 
-        self.check = CTkButton(self, text='Select All',)
+        self.check = CTkButton(self, text='Select All',command=check)
         self.check.grid(sticky='ew', padx=Padding.LARGE, pady=Padding.SMALL)
 
-    def addGenerate(self):
-        self.gen_button = CTkButton(self, text='Generate')
+    def add_generate(self, gen_func):
+        self.gen_button = CTkButton(self, text='Generate', command=gen_func)
         self.gen_button.grid(
             sticky='ew', padx=Padding.LARGE, pady=Padding.LARGE)
 
 
 class ColorFrame(CTkTabview):
-    def __init__(self, master: CTk):
+    def __init__(self, master: CTkFrame):
         super().__init__(master)
-        self.grid(row=2, column=1,
-                  sticky='nsew',
-                  padx=Padding.RIGHT,
-                  pady=Padding.BOTTOM)
 
-        self.add('Color Variable')
         self.add('Color Palette')
-
-        self.tab('Color Variable').grid_columnconfigure(0, weight=1)
         self.tab('Color Palette').grid_columnconfigure(0, weight=1)
 
     def add_color_var_option(self):
+        self.add('Color Variable')
+        self.tab('Color Variable').grid_columnconfigure(0, weight=1)
         CTkLabel(
             self.tab('Color Variable'),
             text="Color variable:",
@@ -114,25 +110,62 @@ class ColorFrame(CTkTabview):
                                pady=Padding.SMALL,
                                sticky="ew")
 
+    def add_opacity_tab(self):
+        self.add('Opacity')
+        self.tab('Opacity').grid_columnconfigure(0, weight=1)
+
+        self.auto_opacity = BooleanVar(value = True)
+        self.opacity = DoubleVar(value = 0)
+
+        self.auto_opacity_switch = CTkSwitch(
+            self.tab('Opactiy'),
+            text = "Auto-Opacity",
+            variable=self.auto_opacity,
+            command=self.toggle_opacity_slider
+        )
+        self.auto_opacity_switch.grid(
+            row = 0, column = 0,
+            padx = Padding.LARGE,
+            pady = Padding.TOP
+        )
+
+        self.opacity_slider = CTkSlider(
+            self.tab('Opacity'),
+            variable=self.opacity,
+            state='disabled'
+        )
+        self.opacity_slider.grid(
+            row = 1, column = 0,
+            padx = Padding.LARGE,
+            pady = Padding.BOTTOM
+        )
+
+    # TODO: #7 add a color picker
     def add_color_picker(self):
 
         pass
 
+    def toggle_opacity_slider(self, *args):
+        new_state = 'normal' if self.opacity_slider.cget('state') == 'disabled'\
+            else 'disabled'
+        self.opacity_slider.configure(state=new_state)
+
 
 class VarWindow(CTkFrame):
-    def __init__(self,
-                 master: CTk,
-                 vis_type: str,
-                 var_list: dict[str, list[str]] = {},
-                 type_requirements: dict[str, Tuple[int, str]] = {}):
-        super().__init__(master=master)
+    def __init__(
+        self,
+        master: CTk,
+        vis_type: str,
+        var_list: dict[str, list[str]] = {},
+        type_requirements: dict[str, Tuple[int, str]] = {},
+        home_func: Callable|None = None,
+        gen_func: Callable|None = None
+    ):
+        super().__init__(master)
         self.grid_columnconfigure((0, 1), weight=1)  # type: ignore
         # self.grid_columnconfigure(2, weight=0)
 
-        self.grid(row=0, column=0,
-                  padx=Padding.LARGE,
-                  pady=Padding.LARGE,
-                  sticky="nsew")
+
 
         self.vis_type = vis_type
         self.var_list = var_list
@@ -180,18 +213,24 @@ class VarWindow(CTkFrame):
                 padx=Padding.LARGE,
                 pady=Padding.TOP,
                 sticky="ew"
-                )
+            )
 
-        self.home_button = CTkButton(self, width=28, text='⌂',
-                                     text_color='black', fg_color='#517f47',
-                                     hover_color='#385831')
-        self.home_button.grid(row=0, column=0, padx=Padding.LEFT,
-                              pady=Padding.TOP, sticky="ns", stick=W)
+        self.home_button = CTkButton(
+            self, width=28, text='⌂',
+            text_color='black',
+            fg_color='#517f47',
+            hover_color='#385831',
+            command=home_func
+        )
+        self.home_button.grid(
+            row=0, column=0, padx=Padding.LEFT,
+            pady=Padding.TOP, sticky="ns", stick=W
+        )
 
         gen = getattr(self, 'gen_' + '_'.join(vis_type.lower().split(' ')))
         gen()
 
-        self.add_buttons()
+        self.add_buttons(gen_func)
 
     def check_required(self, type_reqs: tuple[int, str]) -> list[str]:
         temp_types_dict = self.var_list.copy()
@@ -211,12 +250,10 @@ class VarWindow(CTkFrame):
 
         return out
 
-    def add_buttons(self):
+    def add_buttons(self, gen_func):
         if self.add_check_uncheck:
-            self.right_frame.addCheckUncheck()
-            self.right_frame.uncheck.configure(command=self.uncheck_all)
-            self.right_frame.check.configure(command=self.check_all)
-        self.right_frame.addGenerate()
+            self.right_frame.add_check_uncheck(self.check_all, self.uncheck_all)
+        self.right_frame.add_generate(gen_func)
 
     def check_all(self):
         for box in self.x_checkboxes.values():
@@ -285,7 +322,7 @@ class VarWindow(CTkFrame):
     def gen_x_options(self, var_list):
 
         if self.x_checkboxes_bool is False:
-            self.x_options: list[tuple[StringVar, CTkOptionMenu]] = []
+            self.x_options: list[tuple[StringVar, CTkOptionMenu]] = var_list
 
     def add_checkboxes(self, var_list):
         for ind, var in enumerate(var_list):
@@ -295,17 +332,18 @@ class VarWindow(CTkFrame):
             self.x_checkboxes[var] = (bool_var, checkbox)
 
     def gen_y_vars(self):
-
+        """generate y variables based on requirements
+        """
         self.right_frame.gen_y_vars()
-        self.right_frame.y_option.configure(values=self.y_var,
-                                            variable=self.selected_y_var,
-                                            command=self.update_x_from_y)
+        self.right_frame.y_option.configure(
+            values=self.y_var,
+            variable=self.selected_y_var,
+            # regen x vars based on chosen y_var
+            command=(lambda _: self.gen_x_vars(self.x_type.get()))
+        )
         self.selected_y_var.set(self.y_var[0])
         self.last_selected_y = self.y_var[0]
         self.x_checkboxes_bool = True
-
-    def update_x_from_y(self, y_var):
-        self.gen_x_vars(self.x_type.get())
 
     def gen_color(self):
         self.right_frame.grid_configure(rowspan=1)
@@ -350,7 +388,7 @@ class VarWindow(CTkFrame):
         self.gen_y_vars()
         self.right_frame.y_option.configure(command=self.gen_x_options)
         self.x_checkboxes_bool = False
-        self.gen_x_options()
+        self.gen_x_options([])
         self.gen_color()
 
     def gen_line(self):
@@ -358,6 +396,16 @@ class VarWindow(CTkFrame):
         # change master
         self.gen_y_vars()
         self.gen_x_vars()
+
+    def get_selected_vars(self):
+        x_vars = [var for var, tup in self.x_checkboxes.items()
+            if tup[0].get() is True and var in self.selectable_x_vars]
+        # check if x_vars are showing
+        y_var = self.selected_y_var.get()
+        if (color := self.selected_color_var.get()) == '':
+            color = None
+        vis_type = "_".join(self.vis_type.lower().split(' ')) + "_plot"
+        return x_vars, y_var, color, vis_type
 
 
 if __name__ == '__main__':
@@ -387,5 +435,6 @@ if __name__ == '__main__':
                            {'X': (1, 'num'),
                                'y': (1, 'ord'),
                                'c': (0, 'any')})
+    import_win.grid()
 
     app.mainloop()
