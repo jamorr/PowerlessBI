@@ -93,7 +93,7 @@ class ColorFrame(CTkTabview):
         self.add('Color Palette')
         self.tab('Color Palette').grid_columnconfigure(0, weight=1)
 
-    def add_color_var_option(self):
+    def add_color_var_option(self, values, variable):
         self.add('Color Variable')
         self.tab('Color Variable').grid_columnconfigure(0, weight=1)
         CTkLabel(
@@ -105,7 +105,11 @@ class ColorFrame(CTkTabview):
             pady=Padding.TOP,
             sticky="ew"
         )
-        self.color_option = CTkOptionMenu(self.tab('Color Variable'))
+        self.color_option = CTkOptionMenu(
+            self.tab('Color Variable'),
+            values=values,
+            variable=variable
+        )
         self.color_option.grid(padx=Padding.LARGE,
                                pady=Padding.SMALL,
                                sticky="ew")
@@ -118,7 +122,7 @@ class ColorFrame(CTkTabview):
         self.opacity = DoubleVar(value = 0)
 
         self.auto_opacity_switch = CTkSwitch(
-            self.tab('Opactiy'),
+            self.tab('Opacity'),
             text = "Auto-Opacity",
             variable=self.auto_opacity,
             command=self.toggle_opacity_slider
@@ -348,10 +352,16 @@ class VarWindow(CTkFrame):
     def gen_color(self):
         self.right_frame.grid_configure(rowspan=1)
         self.color_frame = ColorFrame(self)
-        self.color_frame.add_color_var_option()
+        self.color_frame.add_color_var_option(self.color_vars, self.selected_color_var)
         self.color_frame.add_color_picker()
-        self.color_frame.color_option.configure(values=self.color_vars,
-                                                variable=self.selected_color_var)
+        self.color_frame.add_opacity_tab()
+        self.color_frame.grid(
+            row = 2, column =1,
+            sticky = 'nsew',
+            padx = Padding.RIGHT,
+            pady = Padding.BOTTOM
+        )
+
 
     def gen_scatter(self):
         self.gen_y_vars()
