@@ -1,4 +1,5 @@
 import os
+import sys
 import tkinter.messagebox as messagebox
 from datetime import datetime
 from tkinter.filedialog import askopenfilename
@@ -17,7 +18,7 @@ from pandastable import Table
 # import pandas as pd
 from pandas import read_csv
 # from pandas.io.parsers.c_parser_wrapper import ensure_dtype_objs
-from data_manager import DataManager  # noqa: F401
+from data_manager import DataManager
 from utils import UpDownButtons
 # from numpy import sctypeDict
 
@@ -306,7 +307,6 @@ class SettingsRow(CTkFrame):
         self.grid_forget()
         del self
 
-# TODO: add new row -> scroll down to center the new row
 
 # TODO: Consider adding automatic generation of attributes
 # based on file type loaded in using parameter types to guide
@@ -381,6 +381,7 @@ class ColumnSettingsFrame(CTkScrollableFrame):
         )
         self.new_row_button = CTkButton(self, text="+", command=self.add_row)
         self.new_row_button.grid(row=1, column=1)
+        # self.bind("<Scroll-Event>")
 
     def add_row(
         self,
@@ -435,26 +436,11 @@ class ColumnSettingsFrame(CTkScrollableFrame):
             self.up_down_buttons[-2].activate_down()
         self.last_row_index += 1
         self.new_row_button.grid(row=self.last_row_index)
-        # self.focus_end()
+        self.scroll_to_bottom()
 
-    def focus_end(self):
-        self._parent_canvas.configure(scrollregion=self._parent_canvas.bbox("all"))
-        # self._fit_frame_dimensions_to_canvas()
-        # TODO: #2 scroll to better center newly added text box
-        # Create a dummy event object
-        event = tk.Event()
-
-        # Set the attributes of the event object to simulate a scroll event
-        event.delta = -120  # Positive value for scrolling up,
-        #negative for scrolling down
-        event.x = self.winfo_pointerx()
-        event.y = self.winfo_pointery()
-        event.widget = self._parent_canvas
-        self._mouse_wheel_all(event)
-        # self._parent_canvas.yview_scroll(120, "units")
-        print(f"Before: {self._parent_canvas.yview()}")
-        # self._parent_canvas.yview_moveto(1.0)
-        # print(f"After: {self._parent_canvas.yview()}")
+    def scroll_to_bottom(self):
+        self.update_idletasks()
+        self._parent_canvas.yview_moveto(1.0)
 
 
     def del_all_rows(self):
@@ -569,7 +555,8 @@ class ColumnSettingsFrame(CTkScrollableFrame):
                 'name': settings['names'][i] if 'names' in settings else '',
                 'is_index':True if i in settings['index'] else False,
                 'data_type':settings['dtype'][settings['names'][i]]
-                if settings['names'][i] in settings['dtype'] else '',
+                if 'names' in settings and \
+                    settings['names'][i] in settings['dtype'] else '',
                 # depends on settings in main settings
                 # by default: MM/DD/YYYY
                 'date_time':''
@@ -622,7 +609,7 @@ class ImportWindow(CTkFrame):
         self.path_text = StringVar()
         self.delim = StringVar(value='')
 
-        self.selected = StringVar()
+        self.selected_save = StringVar()
         self.last_import = None  # list of import settings from last import
 
 
@@ -634,7 +621,7 @@ class ImportWindow(CTkFrame):
         self.file_frame.browse_button.configure(command=self.browse_func)
         self.file_frame.clear_button.configure(command=self.clear_form)
         self.file_frame.path_entry.configure(textvariable=self.path_text)
-        self.file_frame.path_settings_option.configure(variable=self.selected,
+        self.file_frame.path_settings_option.configure(variable=self.selected_save,
                                                        values=self.save_list,
                                                        command=self.fill_form)
         self.file_frame.del_button.configure(command=self.del_selected)
@@ -701,36 +688,20 @@ class ImportWindow(CTkFrame):
         self.file_frame.path_settings_option.configure(
             values=self.save_list
         )
-        if self.selected.get() not in self.save_list:
-            self.selected.set("")
+        if self.selected_save.get() not in self.save_list:
+            self.selected_save.set("")
             self.file_frame.del_button.configure(
                 fg_color=("gray95", "gray10"),
                 state='disabled'
             )
 
-    # # update json file with updated dict
-    # def update_path_json(self):
-    #     # write updated settings dict to file
-    #     with open('path_settings.json', 'w') as f:
-    #         f.seek(0)
-    #         json.dump(self.path_settings, f, indent=4, sort_keys=True)
-    #     self.save_list = ['']
-    #     self.save_list.extend(self.path_settings)
-    #     self.file_frame.path_settings_option.configure(
-    #         values=self.save_list)
-
-    # def update_type_json(self):
-    #     with open('type_dict.json', 'w') as f:
-    #         f.seek(0)
-    #         json.dump(self.data_types, f, indent=4, sort_keys=True)
-
     # delete selected from dict
     def del_selected(self):
-        selected = self.selected.get()
+        selected = self.selected_save.get()
         self.log_action('Deleted path', selected)
         # del self.path_settings[selected]
         self.data_manager.delete_selected(selected)
-        # calls update_saves_list and self.selected.set('')
+        # calls update_saves_list and self.selected_save.set('')
         # change to blue
 
     # find file and set entry box to path
@@ -817,8 +788,8 @@ class ImportWindow(CTkFrame):
     def clear_form(self):
         self.path_text.set('')
         self.delim.set('')
-        if self.selected.get() != '':
-            self.selected.set('')
+        if self.selected_save.get() != '':
+            self.selected_save.set('')
             self.file_frame.del_button.configure(fg_color=("gray95", "gray10"),
                                                  state='disabled')
 
@@ -857,14 +828,21 @@ class ImportWindow(CTkFrame):
         # fill alias entry box
         self.fill_placeholder_entry(self.act_frame.alias_entry, selected)
         # fill rows in adv_frame
-        adv_frame_settings = {
-            'names': settings['names'],
-            'is_index': settings['index_col'],
-            'dtype': settings['dtype'],
-            # TODO: implement date conversion based on default from settings
+        adv_frame_settings = {}
+        if 'dtype' in settings:
+            adv_frame_settings['dtype'] = settings['dtype']
+        else:
+            return
+        if 'names' in settings:
+            adv_frame_settings["names"] = settings['names']
 
-            'parse_dates': self.data_manager.convert_dates(settings['parse_dates'])
-        }
+        adv_frame_settings['index'] = settings['index_col']\
+            if 'index_col' in settings else []
+
+        if 'parse_dates' in settings:
+            adv_frame_settings['parse_dates'] = \
+                self.data_manager.convert_dates(settings['parse_dates'])
+
         self.adv_frame.set_all(adv_frame_settings)
         self.focus()
 
@@ -974,7 +952,7 @@ class ImportWindow(CTkFrame):
             settings['dtype'] = names_types
         # test
         # print([str(dtype) for dtype in self.table.model.df.dtypes])
-        selected = self.selected.get()
+        selected = self.selected_save.get()
         if selected != '':
             if alias != selected:
                 self.data_manager.rename_selected(selected, alias)
@@ -992,7 +970,7 @@ class ImportWindow(CTkFrame):
         else:
             self.data_manager.new_save(alias, settings, converted_types, [])
         # fill form
-        self.selected.set(alias)
+        self.selected_save.set(alias)
         self.fill_form(alias)
         self.log_action('Saved path', alias)
 
@@ -1010,14 +988,14 @@ class ImportWindow(CTkFrame):
 
         # check if user intends to overwrite existing save
         overwrite = True
-        if self.selected.get() != '':
+        if self.selected_save.get() != '':
             overwrite = messagebox.askyesnocancel(
                 'Warning', message='Overwrite the selected path?\n'
                 'Select Yes to proceed, No to save without overwriting,'
                 ' or Cancel to exit.')
 
         if overwrite is False:
-            self.selected.set('')
+            self.selected_save.set('')
         elif overwrite is None:
             return None
 
