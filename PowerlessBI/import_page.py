@@ -1,9 +1,8 @@
 import os
-import sys
 import tkinter.messagebox as messagebox
 from datetime import datetime
 from tkinter.filedialog import askopenfilename
-import tkinter as tk
+from typing import Callable
 from warnings import catch_warnings, simplefilter  # noqa: F401
 from collections import Counter, deque
 
@@ -62,52 +61,109 @@ class FileFrame(CTkFrame):
         CTkFrame (_type_): _description_
     """
 
-    def __init__(self, master, **kwargs):
+    def __init__(
+        self,
+        master,
+        home_func: Callable | None,
+        browse_func: Callable | None,
+        clear_func: Callable | None,
+        del_func: Callable | None,
+        fill_func: Callable | None,
+        selected_var: StringVar | None,
+        saves: list[str] | None,
+        **kwargs
+    ):
         super().__init__(master, **kwargs)
         self.grid_columnconfigure((0, 1), weight=1)  # type: ignore
         self.grid_columnconfigure(2, weight=0)
 
-        self.home_button = CTkButton(self, width=28, text='⌂',
-                                     text_color='black', fg_color='#517f47',
-                                     hover_color='#385831')
-        self.home_button.grid(row=0, column=0, padx=Padding.LEFT,
-                              pady=Padding.TOP, sticky="ns", stick=W)
+        self.home_button = CTkButton(
+            self, width=28, text='⌂',
+            command=home_func,
+            text_color='black',
+            fg_color='#517f47',
+            hover_color='#385831'
+        )
+        self.home_button.grid(
+            row=0, column=0,
+            padx=Padding.LEFT,
+            pady=Padding.TOP,
+            sticky="ns", stick=W
+        )
 
         CTkLabel(self, text='Select file to read in:',
                  anchor='center').grid(row=0, padx=Padding.RIGHT,
                                        pady=Padding.TOP, sticky="ns",
                                        columnspan=2)
 
-        self.clear_button = CTkButton(self, text='Clear Form',
-                                      fg_color='#8b0000',
-                                      hover_color='#650000')
-        self.clear_button.grid(row=0, column=2, stick=W,
-                               padx=Padding.RIGHT, pady=Padding.TOP)
+        self.clear_button = CTkButton(
+            self, text='Clear Form',
+            command=clear_func,
+            fg_color='#8b0000',
+            hover_color='#650000'
+        )
+        self.clear_button.grid(
+            row=0, column=2,
+            stick=W,
+            padx=Padding.RIGHT,
+            pady=Padding.TOP
+        )
 
         self.path_entry = CTkEntry(self, width=300)
         self.path_entry.grid(row=1, column=0, padx=Padding.LEFT,
                              pady=Padding.SMALL, sticky="nsew",
                              columnspan=2)
 
-        self.browse_button = CTkButton(self, text="Browse")
-        self.browse_button.grid(row=1, column=2, padx=Padding.RIGHT,
-                                pady=Padding.SMALL, stick=W)
+        self.browse_button = CTkButton(
+            self,
+            text="Browse",
+            command=browse_func
+        )
+        self.browse_button.grid(
+            row=1, column=2,
+            padx=Padding.RIGHT,
+            pady=Padding.SMALL,
+            stick=W
+        )
 
-        CTkLabel(self, text='Edit existing:',
-                 anchor='center').grid(row=2, column=0, padx=Padding.LEFT,
-                                       pady=Padding.BOTTOM, sticky="ns", stick=E)
+        CTkLabel(
+            self,
+            text='Edit existing:',
+            anchor='center'
+        ).grid(
+            row=2, column=0,
+            padx=Padding.LEFT,
+            pady=Padding.BOTTOM,
+            sticky="ns", stick=E
+        )
 
-        self.path_settings_option = CTkOptionMenu(self, anchor='center')
+        self.path_settings_option = CTkOptionMenu(
+            self, anchor='center',
+            values=saves,
+            variable=selected_var,
+            command=fill_func
+        )
 
-        self.path_settings_option.grid(row=2, column=1, padx=Padding.RIGHT,
-                                       pady=Padding.BOTTOM, sticky="ns", stick=W)
+        self.path_settings_option.grid(
+            row=2, column=1,
+            padx=Padding.RIGHT,
+            pady=Padding.BOTTOM,
+            sticky="ns", stick=W
+        )
 
-        self.del_button = CTkButton(self, text="Delete Selected",
-                                    fg_color=("gray95", "gray10"),
-                                    state='disabled')
+        self.del_button = CTkButton(
+            self, text="Delete Selected",
+            command=del_func,
+            fg_color=("gray95", "gray10"),
+            state='disabled'
+        )
 
-        self.del_button.grid(row=2, column=2, padx=Padding.RIGHT,
-                             pady=Padding.BOTTOM, stick=W)
+        self.del_button.grid(
+            row=2, column=2,
+            padx=Padding.RIGHT,
+            pady=Padding.BOTTOM,
+            stick=W
+        )
 
 
 class SettingsFrame(CTkFrame):
@@ -128,8 +184,7 @@ class SettingsFrame(CTkFrame):
         ).grid(row=0, column=0,
                stick=W,
                padx=Padding.LEFT,
-               pady=Padding.TOP
-        )
+               pady=Padding.TOP)
 
         self.delim_entry = CTkEntry(self, width=20)
         self.delim_entry.grid(
@@ -191,7 +246,8 @@ class SettingsFrame(CTkFrame):
         )
         self.header_row_number_entry.configure(state='disabled')
 
-    # focus or unfocus from entry box, change color and replace placeholder text
+    # focus or unfocus from entry box,
+    # change color and replace placeholder text
 
     def set_columns(self):
         if self.rad_var.get() == 0:
@@ -275,13 +331,15 @@ class SettingsRow(CTkFrame):
         self.name_entry = CTkEntry(
             self, textvariable=self.name)
         self.name_entry.grid(
-            column=0, row=0, sticky='nsew', padx=Padding.SMALL, pady=Padding.SMALL
+            column=0, row=0, sticky='nsew',
+            padx=Padding.SMALL, pady=Padding.SMALL
         )
 
         self.index_switch = CTkSwitch(
             self, width=36, variable=self.is_index, text="")
         self.index_switch.grid(
-            column=1, row=0, sticky='nsew', padx=Padding.SMALL, pady=Padding.SMALL
+            column=1, row=0, sticky='nsew',
+            padx=Padding.SMALL, pady=Padding.SMALL
         )
 
         self.data_type = CTkOptionMenu(
@@ -291,7 +349,8 @@ class SettingsRow(CTkFrame):
             variable=self.data_type
         )
         self.data_type.grid(
-            column=2, row=0, sticky='nsew', padx=Padding.SMALL, pady=Padding.SMALL
+            column=2, row=0, sticky='nsew',
+            padx=Padding.SMALL, pady=Padding.SMALL
         )
 
         self.date_time_entry = CTkEntry(
@@ -442,7 +501,6 @@ class ColumnSettingsFrame(CTkScrollableFrame):
         self.update_idletasks()
         self._parent_canvas.yview_moveto(1.0)
 
-
     def del_all_rows(self):
         while self.del_buttons:
             del_button = self.del_buttons[-1]
@@ -486,11 +544,11 @@ class ColumnSettingsFrame(CTkScrollableFrame):
             row.date_time.set('')
             row.date_time_entry.delete(0, END)
 
-    def del_row(self, row):
+    def del_row(self, row: int | CTkButton):
         """Delete row frame"""
-        if type(row) is not int:
+        if not isinstance(row, int):
             try:
-                row = self.del_buttons.index(row)
+                row = self.del_buttons.index(row)  # type:ignore
                 self.last_row_index -= 1
             except TypeError:
                 return
@@ -549,17 +607,16 @@ class ColumnSettingsFrame(CTkScrollableFrame):
                 return
         self.del_all_rows()
 
-
         rows = [
             {
                 'name': settings['names'][i] if 'names' in settings else '',
-                'is_index':True if i in settings['index'] else False,
-                'data_type':settings['dtype'][settings['names'][i]]
-                if 'names' in settings and \
-                    settings['names'][i] in settings['dtype'] else '',
+                'is_index': True if i in settings['index'] else False,
+                'data_type': settings['dtype'][settings['names'][i]]
+                if 'names' in settings and
+                settings['names'][i] in settings['dtype'] else '',
                 # depends on settings in main settings
                 # by default: MM/DD/YYYY
-                'date_time':''
+                'date_time': ''
             }
             for i in range(len(settings['dtype']))
         ]
@@ -583,7 +640,11 @@ class ImportWindow(CTkFrame):
     Path and import settings can be saved to path_settings.json
     """
 
-    def __init__(self, master: CTk, data_manager: DataManager) -> None:
+    def __init__(
+            self,
+            master: CTk,
+            data_manager: DataManager,
+            home_func: Callable | None) -> None:
         """initialize ImportWindow
 
         Args:
@@ -596,11 +657,10 @@ class ImportWindow(CTkFrame):
         self.grid_rowconfigure((0, 1, 2, 3), weight=0)  # type: ignore
         self.grid_rowconfigure(4, weight=1)
 
-
         # self.data_types = data_types
         # self.path_settings = path_settings
         self.data_manager = data_manager
-        self.data_manager.bind("import window",self.update_save_list)
+        self.data_manager.bind("import window", self.update_save_list)
         self.save_list: list[str]
         # .extend(
         #     list(self.data_manager.get_saves()))
@@ -612,24 +672,36 @@ class ImportWindow(CTkFrame):
         self.selected_save = StringVar()
         self.last_import = None  # list of import settings from last import
 
-
         # TODO: #3 remove config statements and instead pass
         # commands as arguments to relevant frames
         # create frame to select path and import existing
-        self.file_frame = FileFrame(self)
         self.update_save_list()
-        self.file_frame.browse_button.configure(command=self.browse_func)
-        self.file_frame.clear_button.configure(command=self.clear_form)
-        self.file_frame.path_entry.configure(textvariable=self.path_text)
-        self.file_frame.path_settings_option.configure(variable=self.selected_save,
-                                                       values=self.save_list,
-                                                       command=self.fill_form)
-        self.file_frame.del_button.configure(command=self.del_selected)
+        self.file_frame = FileFrame(
+            self,
+            home_func=home_func,
+            browse_func=self.browse_func,
+            clear_func=self.clear_form,
+            del_func=self.del_selected,
+            fill_func=self.fill_form,
+            selected_var=self.selected_save,
+            saves=self.save_list,
+
+        )
+        # self.file_frame.browse_button.configure(command=self.browse_func)
+        # self.file_frame.clear_button.configure(command=self.clear_form)
+        # self.file_frame.path_entry.configure(textvariable=self.path_text)
+        # self.file_frame.path_settings_option.configure(variable=self.selected_save,
+        #                                                values=self.save_list,
+        #                                                command=self.fill_form)
+        # self.file_frame.del_button.configure(command=self.del_selected)
         self.file_frame.grid(row=0, column=0, columnspan=2,
                              sticky="nsew", padx=Padding.LARGE,
                              pady=Padding.TOP)
+
         # create frame to input settings
-        self.settings_frame = SettingsFrame(self)
+        self.settings_frame = SettingsFrame(
+            self
+        )
         self.settings_frame.delim_entry.configure(textvariable=self.delim)
         self.settings_frame.grid(row=1, column=0, sticky="nsew",
                                  padx=Padding.LEFT, pady=Padding.SMALL)
@@ -643,8 +715,9 @@ class ImportWindow(CTkFrame):
                             padx=Padding.RIGHT, pady=Padding.SMALL)
         # create frame for advanced options
         self.adv_frame = ColumnSettingsFrame(self)
-        self.adv_frame.grid(row=2, rowspan=3, column=0, columnspan=2, sticky="nsew",
-                            padx=Padding.LARGE, pady=Padding.BOTTOM)
+        self.adv_frame.grid(row=2, rowspan=3, column=0, columnspan=2,
+                            sticky="nsew", padx=Padding.LARGE,
+                            pady=Padding.BOTTOM)
 
         screen_width = self.winfo_screenwidth()
         height = self.winfo_height()
@@ -678,7 +751,6 @@ class ImportWindow(CTkFrame):
         if self.last_import is not None:
             # self.grid_columnconfigure(1, weight=2)  # type: ignore
             self.view_frame.grid()
-
 
     def update_save_list(self):
         # print("Save list updated")
@@ -744,8 +816,7 @@ class ImportWindow(CTkFrame):
             if (len(names) < len(names_counts) and
                     messagebox.askyesno(
                     "Name overlap:",
-                    "Append duplicate names with numbers?")
-                ):
+                    "Append duplicate names with numbers?")):
                 # create list of unique/mangled names
                 t_names = deque(maxlen=len(names))
                 for name in names[::-1]:
@@ -859,13 +930,13 @@ class ImportWindow(CTkFrame):
 
         self.add_df(settings)
 
-    def fill_placeholder_entry(self, entry: CTkEntry, text):
+    def fill_placeholder_entry(self, entry: CTkEntry, text: str):
         entry._deactivate_placeholder()
         entry._entry.delete(0, END)
         entry._entry.insert(0, str(text).replace("'", '"'))
         entry._activate_placeholder()
 
-    def fill_textbox(self, textbox: CTkTextbox, text:str|None):
+    def fill_textbox(self, textbox: CTkTextbox, text: str | None):
 
         if text is None:
             text = ''
@@ -938,8 +1009,9 @@ class ImportWindow(CTkFrame):
             messagebox.showerror('ERROR', message='Select a file')
             return 0
         # get alias or file name if no alias
-        alias = self.act_frame.alias_entry.get() if self.act_frame.alias_entry.get() \
-            else os.path.basename(self.path_text.get()).split('.')[0]
+        alias = self.act_frame.alias_entry.get()
+        if not alias:
+            os.path.basename(self.path_text.get()).split('.')[0]
         if self.last_import != form:
             self.add_df(form)
             # if add_df returns none then return none
@@ -1064,7 +1136,7 @@ class ImportWindow(CTkFrame):
     # save list of dtypes to separate json/shelf
     def read_dtypes(self, dtype: dict):
         dtypes_dict = self.invert_dict(dtype)
-        print(dtypes_dict)
+        # print(dtypes_dict)
         # convert dtypes into appropriate forms
         types_dict = {
             'num': [],
@@ -1115,5 +1187,5 @@ if __name__ == '__main__':
     app = CTk()
     chdir(dirname(abspath(__file__)))
     app.grid_columnconfigure((0, 1), weight=1)  # type: ignore
-    import_win = ImportWindow(app, DataManager())
+    import_win = ImportWindow(app, DataManager(), None)
     app.mainloop()

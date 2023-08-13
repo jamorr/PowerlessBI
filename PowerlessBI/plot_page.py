@@ -21,28 +21,30 @@ different plots to it before showing it"""
 # [] [] -> [] [] or [] [] []
 # []        []
 # maybe double number of colums so that its easier to recenter later?
+
+
 class PlotData:
     def __init__(self,
-                 x_vars:list[str],
-                 y_var:str,
-                 color:str|list[str]|None,
-                 vis_type:str,
-                 data_frame:pd.DataFrame,
-                 scale:Literal['minmax','standard']|None = None,
-                 dimensions:tuple[int,int]|None = None,
-                 opacity:float|Literal['infer']=1.0,
-                 title_format:str = "{x} by {y}",
-                 main_title:str = "",
-                 master:CTk|None = None):
+                 x_vars: list[str],
+                 y_var: str,
+                 color: str | list[str] | None,
+                 vis_type: str,
+                 data_frame: pd.DataFrame,
+                 scale: Literal['minmax', 'standard'] | None = None,
+                 dimensions: tuple[int, int] | None = None,
+                 opacity: float | Literal['infer'] = 1.0,
+                 title_format: str = "{x} by {y}",
+                 main_title: str = "",
+                 master: CTk | None = None):
         # https://plotly.com/python/interactive-html-export/
         self.main_title = main_title
-        self.opacity = opacity if type(opacity) is float else self.estimate_opacity()
+        self.opacity = opacity if isinstance(opacity,float) else self.estimate_opacity()
         self.scale = scale
-        self.x_vars:list[str] = x_vars
+        self.x_vars: list[str] = x_vars
         self.y_var = y_var
         self.color = color
         # self.vis_type:str = vis_type
-        self.data_frame:pd.DataFrame = data_frame
+        self.data_frame: pd.DataFrame = data_frame
         self.dims = self.nearest_rectangle() if dimensions is None else dimensions
         self.title_format = title_format
         self.master = master
@@ -178,12 +180,14 @@ class PlotData:
         fig.show()
 
     def statistics_plot(self):
+        # TODO: #11 Convert to a call to the plotly api using a table subplot https://plotly.com/python/table-subplots/
         df = self.data_frame[self.x_vars]
         sum_stats = df.describe().T
         sum_stats['median'] = [df[f'{col}'].median() for col in df]
         sum_stats['variance'] = [df[f'{col}'].var() for col in df]
         sum_stats = sum_stats[['mean','median','variance', 'std',
                                'min', '25%', '50%', '75%', 'max']].convert_dtypes(True)
+
 
         app = CTkToplevel(self.master)
         app.grid_columnconfigure(0,weight=1)
@@ -207,15 +211,14 @@ class PlotData:
 
     def scatter_3d_plot(self):
 
-
-
         pass
 
     def meshgrid_3d_plot(self):
+
         pass
 
-
-    # TODO: #8 implement estimate_opacity based on https://damassets.autodesk.net/content/dam/autodesk/research/publications-assets/pdf/dynamic-opacity-optimization-for.pdf and https://dl.acm.org/doi/epdf/10.1145/964965.808606
+    # TODO: #8 implement estimate_opacity based on 
+    # https://damassets.autodesk.net/content/dam/autodesk/research/publications-assets/pdf/dynamic-opacity-optimization-for.pdf and https://dl.acm.org/doi/epdf/10.1145/964965.808606
     def estimate_opacity(self):
         # colorrgba(rr,gg,bb,a) a is alpha or opacity
         # based on the number of data points/density of points on the graph
@@ -266,4 +269,3 @@ if __name__ == "__main__":
                 None,
                 vis_type='correlation_plot',
                 data_frame=data_frame)
-

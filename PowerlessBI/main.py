@@ -1,6 +1,6 @@
 from os import chdir
-import os
 from os.path import abspath, dirname
+import pathlib
 from tkinter import messagebox
 from typing import Any, Tuple
 
@@ -72,9 +72,9 @@ class WindowManager(CTk):
         self.import_window: ImportWindow
         self.import_window_exists = False
 
-        self.sel_window_grid()
+        self.add_sel_window_to_grid()
 
-    def sel_window_grid(self):
+    def add_sel_window_to_grid(self):
         """Reconfigure window grid\n
         Load existing from JSON\n
         Create selection window if it doesn't exist\n
@@ -90,13 +90,14 @@ class WindowManager(CTk):
                 self.type_requirements
             )
             self.selection_window.read_frame.import_button.configure(
-                command=self.import_window_grid)
+                command=self.add_import_window_to_grid)
             self.selection_window.read_frame.data_opt.configure(
                 variable=self.selected_data)
             # configure button commands for vis creation to
             # call vis with same name as button text
             for text, button in self.selection_window.ver_frame.vis_buttons.items():
-                button.configure(command=(lambda text=text: self.gen_var_window(text)))
+                button.configure(
+                    command=(lambda text=text: self.gen_var_window(text)))
             self.data_manager.bind(
                 "data_selection",
                 self.update_save_list_in_data_selection_page
@@ -107,15 +108,16 @@ class WindowManager(CTk):
         else:
             self.selection_window.grid()
 
+    # TODO: #13 MOVE TO SELECTION WINDOW CLASS
     def update_save_list_in_data_selection_page(self):
         if self.selected_data.get() not in (saves := self.data_manager.get_saves()):
-            self.selected_data.set(value='')
+            self.selected_data.set('')
         else:
             self.selection_window.read_dtypes(self.selected_data.get())
 
         self.selection_window.read_frame.data_opt.configure(values=saves)
 
-    def import_window_grid(self):
+    def add_import_window_to_grid(self):
         """Create import window, remove selection window widgets,
         and set import window widgets on the updated grid
         """
@@ -125,9 +127,11 @@ class WindowManager(CTk):
         # create import window or put it into grid and configure buttons
         if not self.import_window_exists:
             self.import_window_exists = True
-            self.import_window = ImportWindow(self, self.data_manager)
-            self.import_window.file_frame.home_button.configure(
-                command=self.import_window_forget_grid)
+            self.import_window = ImportWindow(
+                master=self,
+                data_manager=self.data_manager,
+                home_func=self.import_window_forget_grid
+            )
             self.import_window.grid(
                 row=0, column=0,
                 sticky='nsew',
@@ -146,7 +150,7 @@ class WindowManager(CTk):
         """
         self.import_window.grid_remove()
         self.import_window.view_frame.grid_remove()
-        self.sel_window_grid()
+        self.add_sel_window_to_grid()
 
     def gen_var_window(self, vis_type):
         """generate window to select options for graph,
@@ -170,14 +174,15 @@ class WindowManager(CTk):
 
     def del_var_window(self):
         self.var_window.destroy()
-        self.sel_window_grid()
+        self.add_sel_window_to_grid()
 
     def create_vis(self):
         x_vars, y_var, color, vis_type = self.var_window.get_selected_vars()
 
         # instead of data_frame here we could use data manager
         # to load in the data potentially
-        settings = self.data_manager.load_selected_settings(self.selected_data.get())
+        settings = self.data_manager.load_selected_settings(
+            self.selected_data.get())
 
         # match file type to dataframe
         # TODO: #4 add addtional support for other parameters
@@ -190,10 +195,13 @@ class WindowManager(CTk):
         ]
         for par_name in parameter_names:
             if par_name in settings:
-                file_type = os.path.basename(settings[par_name]).split('.')[1]
+                # file_type = os.path.basename(settings[par_name]).split('.')[1]
+                # exlude leading period
+                file_type = pathlib.Path(settings[par_name]).suffix[1:]
                 break
         else:
-            messagebox.showerror("ERROR", "Invalid or missing filepath or buffer.")
+            messagebox.showerror(
+                "ERROR", "Invalid or missing filepath or buffer.")
             return
 
         read_method = getattr(pd, "read_"+file_type)
@@ -201,8 +209,12 @@ class WindowManager(CTk):
         PlotData(x_vars, y_var, color, vis_type, data_frame, master=self)
 
 
-if __name__ == '__main__':
+def main():
     chdir(dirname(abspath(__file__)))
     # ctypes.windll.shcore.SetProcessDpiAwareness(2)
     root = WindowManager()
     root.mainloop()
+
+
+if __name__ == '__main__':
+    main()

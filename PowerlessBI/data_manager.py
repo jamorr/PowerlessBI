@@ -97,8 +97,8 @@ class DataManager:
 
     def delete_selected(self, selected):
         """delete selected save completely"""
-        if os.path.exists(self.save_path+selected):
-            shutil.rmtree(self.save_path+selected)
+        if os.path.exists(self.save_path/selected):
+            shutil.rmtree(self.save_path/selected)
         # TODO: add error handling/popup/logging
         # self.save_folders = self.get_saves()
 
@@ -106,9 +106,9 @@ class DataManager:
         """rename selected save"""
         # if new names also in path
         try:
-            os.rename(self.save_path / selected, self.save_path / new_name)
+            os.rename(self.save_path/selected, self.save_path/new_name)
         except os.error:
-            os.mkdir(self.save_path / new_name)
+            os.mkdir(self.save_path/new_name)
 
     def load_selected_settings(self, selected:str) -> dict:
         """loads read settings for a save if they exist"""

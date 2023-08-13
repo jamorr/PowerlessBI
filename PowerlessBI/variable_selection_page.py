@@ -33,15 +33,15 @@ class LeftFrame(CTkFrame):
             sticky="ew"
         )
 
-    def addTypeOption(self):
-        self.x_type_option = CTkOptionMenu(self)
+    def add_type_option(self, **kwargs):
+        self.x_type_option = CTkOptionMenu(self, **kwargs)
         self.x_type_option.grid(column=0, row=1,
                                 sticky='ew',
                                 padx=Padding.LARGE,
                                 pady=Padding.SMALL,)
 
-    def addCheckbox(self, check_var: BooleanVar, var: str, ind: int):
-        checkbox = CTkCheckBox(self, text=var, variable=check_var,
+    def addCheckbox(self, check_var: BooleanVar, var_name: str, ind: int):
+        checkbox = CTkCheckBox(self, text=var_name, variable=check_var,
                                onvalue=True, offvalue=False)
         checkbox.grid(column=0, row=ind,
                       sticky='ew',
@@ -51,13 +51,16 @@ class LeftFrame(CTkFrame):
         checkbox.grid_remove()
         return checkbox
 
+# TODO: #12 add a tab to select format/dimensions of the plots & switch for single plot
+# vs subplots
+
 
 class RightFrame(CTkFrame):
     def __init__(self, master: CTkFrame, **kwargs):
         super().__init__(master, **kwargs)
         self.columnconfigure(0, weight=1)
 
-    def gen_y_vars(self):
+    def add_y_opt(self, **kwargs):
         CTkLabel(
             self,
             text="Target variable:",
@@ -68,16 +71,16 @@ class RightFrame(CTkFrame):
             sticky="ew"
         )
 
-        self.y_option = CTkOptionMenu(self, )
+        self.y_option = CTkOptionMenu(self, **kwargs)
         self.y_option.grid(padx=Padding.LARGE,
                            pady=Padding.SMALL,
                            sticky="ew",)  # stick=W
 
     def add_check_uncheck(self, check, uncheck):
-        self.uncheck = CTkButton(self, text='Clear All',command=uncheck)
+        self.uncheck = CTkButton(self, text='Clear All', command=uncheck)
         self.uncheck.grid(sticky='ew', padx=Padding.LARGE, pady=Padding.TOP)
 
-        self.check = CTkButton(self, text='Select All',command=check)
+        self.check = CTkButton(self, text='Select All', command=check)
         self.check.grid(sticky='ew', padx=Padding.LARGE, pady=Padding.SMALL)
 
     def add_generate(self, gen_func):
@@ -118,19 +121,19 @@ class ColorFrame(CTkTabview):
         self.add('Opacity')
         self.tab('Opacity').grid_columnconfigure(0, weight=1)
 
-        self.auto_opacity = BooleanVar(value = True)
-        self.opacity = DoubleVar(value = 0)
+        self.auto_opacity = BooleanVar(value=True)
+        self.opacity = DoubleVar(value=0)
 
         self.auto_opacity_switch = CTkSwitch(
             self.tab('Opacity'),
-            text = "Auto-Opacity",
+            text="Auto-Opacity",
             variable=self.auto_opacity,
             command=self.toggle_opacity_slider
         )
         self.auto_opacity_switch.grid(
-            row = 0, column = 0,
-            padx = Padding.LARGE,
-            pady = Padding.TOP
+            row=0, column=0,
+            padx=Padding.LARGE,
+            pady=Padding.TOP
         )
 
         self.opacity_slider = CTkSlider(
@@ -139,9 +142,9 @@ class ColorFrame(CTkTabview):
             state='disabled'
         )
         self.opacity_slider.grid(
-            row = 1, column = 0,
-            padx = Padding.LARGE,
-            pady = Padding.BOTTOM
+            row=1, column=0,
+            padx=Padding.LARGE,
+            pady=Padding.BOTTOM
         )
 
     # TODO: #7 add a color picker
@@ -162,14 +165,12 @@ class VarWindow(CTkFrame):
         vis_type: str,
         var_list: dict[str, list[str]] = {},
         type_requirements: dict[str, Tuple[int, str]] = {},
-        home_func: Callable|None = None,
-        gen_func: Callable|None = None
+        home_func: Callable | None = None,
+        gen_func: Callable | None = None
     ):
         super().__init__(master)
         self.grid_columnconfigure((0, 1), weight=1)  # type: ignore
         # self.grid_columnconfigure(2, weight=0)
-
-
 
         self.vis_type = vis_type
         self.var_list = var_list
@@ -211,13 +212,13 @@ class VarWindow(CTkFrame):
         CTkLabel(
             self, text=self.vis_type,
             font=header_font, anchor='center'
-            ).grid(
-                row=0, column=0,
-                columnspan=2,
-                padx=Padding.LARGE,
-                pady=Padding.TOP,
-                sticky="ew"
-            )
+        ).grid(
+            row=0, column=0,
+            columnspan=2,
+            padx=Padding.LARGE,
+            pady=Padding.TOP,
+            sticky="ew"
+        )
 
         self.home_button = CTkButton(
             self, width=28, text='⌂',
@@ -256,7 +257,8 @@ class VarWindow(CTkFrame):
 
     def add_buttons(self, gen_func):
         if self.add_check_uncheck:
-            self.right_frame.add_check_uncheck(self.check_all, self.uncheck_all)
+            self.right_frame.add_check_uncheck(
+                self.check_all, self.uncheck_all)
         self.right_frame.add_generate(gen_func)
 
     def check_all(self):
@@ -286,8 +288,7 @@ class VarWindow(CTkFrame):
             self.x_type.set(types[0])
             x_type = types[0]
 
-            self.left_frame.addTypeOption()
-            self.left_frame.x_type_option.configure(
+            self.left_frame.add_type_option(
                 values=list(x_dict.keys()),
                 variable=self.x_type,
                 command=self.gen_x_vars
@@ -301,7 +302,7 @@ class VarWindow(CTkFrame):
             self.add_check_uncheck = True
 
         if (self.last_selected_x_type != x_type) or \
-            (selected_y_var != self.last_selected_y):
+                (selected_y_var != self.last_selected_y):
             for var, checkbox in self.x_checkboxes.values():
                 checkbox.grid_remove()
 
@@ -330,21 +331,20 @@ class VarWindow(CTkFrame):
 
     def add_checkboxes(self, var_list):
         for ind, var in enumerate(var_list):
-            # self.check_vars.append(BooleanVar())
             bool_var = BooleanVar()
             checkbox = self.left_frame.addCheckbox(bool_var, var, ind + 2)
             self.x_checkboxes[var] = (bool_var, checkbox)
 
-    def gen_y_vars(self):
+    def gen_y_vars(self, command: Callable | None = None):
         """generate y variables based on requirements
         """
-        self.right_frame.gen_y_vars()
-        self.right_frame.y_option.configure(
+        if command is None:
+            command = (lambda _: self.gen_x_vars(self.x_type.get()))  # noqa: E731
+        self.right_frame.add_y_opt(
             values=self.y_var,
             variable=self.selected_y_var,
             # regen x vars based on chosen y_var
-            command=(lambda _: self.gen_x_vars(self.x_type.get()))
-        )
+            command=command)
         self.selected_y_var.set(self.y_var[0])
         self.last_selected_y = self.y_var[0]
         self.x_checkboxes_bool = True
@@ -352,16 +352,16 @@ class VarWindow(CTkFrame):
     def gen_color(self):
         self.right_frame.grid_configure(rowspan=1)
         self.color_frame = ColorFrame(self)
-        self.color_frame.add_color_var_option(self.color_vars, self.selected_color_var)
+        self.color_frame.add_color_var_option(
+            self.color_vars, self.selected_color_var)
         self.color_frame.add_color_picker()
         self.color_frame.add_opacity_tab()
         self.color_frame.grid(
-            row = 2, column =1,
-            sticky = 'nsew',
-            padx = Padding.RIGHT,
-            pady = Padding.BOTTOM
+            row=2, column=1,
+            sticky='nsew',
+            padx=Padding.RIGHT,
+            pady=Padding.BOTTOM
         )
-
 
     def gen_scatter(self):
         self.gen_y_vars()
@@ -395,8 +395,7 @@ class VarWindow(CTkFrame):
         self.gen_color()
 
     def gen_scatter_3d(self):
-        self.gen_y_vars()
-        self.right_frame.y_option.configure(command=self.gen_x_options)
+        self.gen_y_vars(command=self.gen_x_options)
         self.x_checkboxes_bool = False
         self.gen_x_options([])
         self.gen_color()
@@ -406,10 +405,11 @@ class VarWindow(CTkFrame):
         # change master
         self.gen_y_vars()
         self.gen_x_vars()
+        self.gen_color()
 
     def get_selected_vars(self):
         x_vars = [var for var, tup in self.x_checkboxes.items()
-            if tup[0].get() is True and var in self.selectable_x_vars]
+                  if tup[0].get() is True and var in self.selectable_x_vars]
         # check if x_vars are showing
         y_var = self.selected_y_var.get()
         if (color := self.selected_color_var.get()) == '':
